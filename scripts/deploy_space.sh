@@ -1,62 +1,117 @@
 #!/usr/bin/env bash
 #
-# Create the Hugging Face Space and push this repository to it.
+# Publish Vocalyze as a Hugging Face Space that runs the real models.
 #
-#   ./scripts/deploy_space.sh <your-hf-username>
+#     ./scripts/deploy_space.sh
 #
-# Needs a Hugging Face account and a write token from
-# https://huggingface.co/settings/tokens — the account is the one part of this
-# that cannot be scripted away, because the Space is created under it and the
-# pyannote licence is accepted by it.
+# You need a free Hugging Face account. Everything else — creating the Space,
+# generating the encryption key, setting the variables and secrets, checking
+# the pyannote licence, and pushing — happens here.
 #
-# After this finishes, set the runtime variables in the Space's
-# Settings → Variables and secrets. README_HF.md lists them.
+# The Hugging Face account is the one part that cannot be scripted: the Space
+# is created under it, and the pyannote licence is accepted by it.
 
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-USERNAME="${1:-}"
-SPACE_NAME="${2:-vocalyze}"
+SPACE_NAME="${1:-vocalyze}"
 
-if [ -z "$USERNAME" ]; then
-  echo "usage: $0 <hf-username> [space-name]" >&2
-  exit 64
-fi
+step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
+warn() { printf '\033[33m    %s\033[0m\n' "$1"; }
 
-if ! command -v hf >/dev/null 2>&1 && ! command -v huggingface-cli >/dev/null 2>&1; then
-  echo "Installing the Hugging Face CLI..."
+# --------------------------------------------------------------- the CLI
+if ! command -v hf >/dev/null 2>&1; then
+  step "Installing the Hugging Face CLI"
   pip install -q --upgrade "huggingface_hub[cli]"
 fi
-HF="$(command -v hf || command -v huggingface-cli)"
 
-echo "==> Signing in (paste a WRITE token from https://huggingface.co/settings/tokens)"
-"$HF" auth login || "$HF" login
+# ------------------------------------------------------------- signing in
+if ! hf auth whoami >/dev/null 2>&1; then
+  step "Sign in to Hugging Face"
+  echo "    A browser will open, or paste a WRITE token from:"
+  echo "    https://huggingface.co/settings/tokens"
+  hf auth login --add-to-git-credential
+fi
 
-echo "==> Creating the Space $USERNAME/$SPACE_NAME (Docker SDK)"
-"$HF" repo create "$SPACE_NAME" --repo-type space --space_sdk docker -y 2>/dev/null \
-  || echo "    (it already exists — pushing to it)"
+USERNAME="$(python3 -c 'from huggingface_hub import whoami; print(whoami()["name"])')"
+TOKEN="$(python3 -c 'from huggingface_hub import get_token; print(get_token() or "")')"
 
-REMOTE="https://huggingface.co/spaces/$USERNAME/$SPACE_NAME"
+if [ -z "$USERNAME" ] || [ -z "$TOKEN" ]; then
+  echo "Could not read the signed-in account. Run 'hf auth login' and try again." >&2
+  exit 1
+fi
+echo "    Signed in as: $USERNAME"
 
-echo "==> Pushing this repository to the Space"
-git remote remove hf 2>/dev/null || true
-git remote add hf "$REMOTE"
-git push --force hf HEAD:main
+# ------------------------------------------------- is pyannote usable yet?
+step "Checking access to the pyannote models"
+DIARIZATION="pyannote"
+if ! python3 - "$TOKEN" <<'PY'
+import sys
+from huggingface_hub import model_info
 
+token = sys.argv[1]
+for repo in ("pyannote/speaker-diarization-3.1", "pyannote/segmentation-3.0"):
+    model_info(repo, token=token)
+PY
+then
+  DIARIZATION="mock"
+  warn "Not available to this account yet, so speaker separation starts in approximate mode."
+  warn "To switch it on, accept the terms with THIS account on both pages:"
+  warn "  https://hf.co/pyannote/speaker-diarization-3.1"
+  warn "  https://hf.co/pyannote/segmentation-3.0"
+  warn "then set DIARIZATION_BACKEND=pyannote in the Space's settings."
+else
+  echo "    Both models are accessible."
+fi
+
+# ------------------------------------------------------ creating the Space
+ENCRYPTION_KEY="$(python3 -m app.core.crypto)"
+REPO_ID="$USERNAME/$SPACE_NAME"
+
+step "Creating the Space $REPO_ID"
+hf repos create "$REPO_ID" \
+  --type space --sdk docker --public --exist-ok \
+  --secrets "ENCRYPTION_KEY=$ENCRYPTION_KEY" \
+  --secrets "HUGGINGFACE_TOKEN=$TOKEN" \
+  --env "ASR_BACKEND=whisper" \
+  --env "DIARIZATION_BACKEND=$DIARIZATION" \
+  --env "SUMMARIZER_BACKEND=extractive" \
+  --env "WHISPER_MODEL=small" \
+  --env "MAX_UPLOAD_MB=200"
+
+# ------------------------------------------------------------- pushing it
+# A Space reads its configuration from the YAML front matter of README.md —
+# it never looks at README_HF.md. So the commit pushed to the Space carries
+# README_HF.md as its README.md, and the repository keeps its own untouched.
+step "Pushing the code to the Space"
+BRANCH="hf-deploy-$$"
+git switch -c "$BRANCH" >/dev/null 2>&1
+
+cp README_HF.md README.md
+git add README.md
+git -c user.name="deploy" -c user.email="deploy@localhost" \
+    commit -q -m "Space front matter" || true
+
+git remote remove hf >/dev/null 2>&1 || true
+git remote add hf "https://huggingface.co/spaces/$REPO_ID"
+git push --force hf "$BRANCH:main"
+
+# put the repository back exactly as it was
+git switch - >/dev/null 2>&1
+git branch -D "$BRANCH" >/dev/null 2>&1
+git remote remove hf >/dev/null 2>&1 || true
+
+# ------------------------------------------------------------------ done
 cat <<EOF
 
-==> Done. The Space is building at:
-      $REMOTE
+$(printf '\033[1m==> Done.\033[0m')
 
-    It boots on scripted backends. To switch on the real models, open
-      $REMOTE/settings
-    and add the variables listed in README_HF.md — starting with
-      ENCRYPTION_KEY   = $(python3 -m app.core.crypto 2>/dev/null || echo '<run: python -m app.core.crypto>')
-      HUGGINGFACE_TOKEN= hf_...
-      ASR_BACKEND      = whisper
-      DIARIZATION_BACKEND = pyannote
+    Your site:  https://huggingface.co/spaces/$REPO_ID
 
-    And accept the model terms with the same account, on both pages:
-      https://hf.co/pyannote/speaker-diarization-3.1
-      https://hf.co/pyannote/segmentation-3.0
+    It is building now — about five minutes the first time, because the image
+    installs Whisper and pyannote. Then it transcribes real audio: uploads up
+    to 200 MB, no scripted sample.
+
+    The first transcription also downloads the model weights, so that one is
+    slow. Later ones run at roughly real time on the free CPU tier.
 EOF
