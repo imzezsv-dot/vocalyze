@@ -540,3 +540,135 @@ a:hover { color: var(--accent-2); }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   html { scroll-behavior: auto; }
 }
+
+/* ===========================================================================
+   Document pages — privacy policy, audit trail
+   One measure, generous leading. These are read rather than scanned, so they
+   get a narrower column than the app screens and no cards: a border around a
+   paragraph says "separate object", and a policy is one argument.
+   =========================================================================== */
+.doc {
+  max-inline-size: 46rem;
+  padding-block: var(--s-6) var(--s-10);
+}
+.doc__title {
+  font-size: clamp(2rem, 1.4rem + 2.4vw, 3.1rem);
+  margin-block: var(--s-2) var(--s-3);
+  text-wrap: balance;
+}
+.doc__lede {
+  font-size: 1.075rem;
+  line-height: 1.7;
+  color: var(--ink-2);
+  margin-block: 0 var(--s-2);
+  max-inline-size: 38rem;
+}
+.doc h2 {
+  font-size: 1.4rem;
+  margin-block: var(--s-6) var(--s-2);
+  padding-block-start: var(--s-2);
+  border-block-start: 1px solid var(--rule);
+}
+.doc h3 { font-size: 1.05rem; margin-block-end: .3rem; }
+.doc p  { line-height: 1.7; color: var(--ink-2); margin-block: 0 var(--s-2); }
+
+.doc__mode {
+  margin-block: var(--s-3) var(--s-5);
+  padding: var(--s-2) var(--s-3);
+  background: var(--accent-tint);
+  border-inline-start: 3px solid var(--accent);
+  line-height: 1.65;
+}
+.doc__mode strong { color: var(--accent-ink); }
+.doc__mode-extra { display: block; margin-block-start: .4rem; color: var(--ink-3); font-size: .9rem; }
+
+/* Numbered because these are claims a reader may want to cite back, not a
+   sequence of steps. */
+.doc__claims { list-style: none; counter-reset: claim; padding: 0; margin: 0; }
+.doc__claims li {
+  counter-increment: claim;
+  display: grid;
+  grid-template-columns: 2.25rem 1fr;
+  gap: 0 var(--s-1);
+  padding-block: var(--s-2);
+  border-block-end: 1px solid var(--rule-hair);
+}
+.doc__claims li::before {
+  content: counter(claim, decimal-leading-zero);
+  font-family: var(--font-ui);
+  font-size: .78rem;
+  letter-spacing: .08em;
+  color: var(--muted);
+  padding-block-start: .3rem;
+}
+.doc__claims h3, .doc__claims p { grid-column: 2; }
+.doc__claims p { margin: 0; }
+
+.doc__limits { padding-inline-start: 1.1rem; margin: 0; }
+.doc__limits li { line-height: 1.7; color: var(--ink-2); margin-block-end: var(--s-1); }
+
+.doc__foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  margin-block-start: var(--s-6);
+  padding-block-start: var(--s-3);
+  border-block-start: 1px solid var(--rule);
+}
+
+/* --------------------------------------------------------- chain verdict */
+.chain {
+  margin-block: var(--s-4) var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--rule);
+  background: var(--paper-pure);
+  border-inline-start-width: 3px;
+}
+.chain[data-state="ok"]       { border-inline-start-color: var(--accent); }
+.chain[data-state="broken"]   { border-inline-start-color: var(--flag); background: var(--flag-tint); }
+.chain[data-state="empty"],
+.chain[data-state="checking"] { border-inline-start-color: var(--rule); }
+
+.chain__verdict {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: var(--ink);
+}
+.chain[data-state="ok"] .chain__verdict     { color: var(--accent); }
+.chain[data-state="broken"] .chain__verdict { color: var(--flag); }
+.chain__detail { margin-block-start: .35rem; color: var(--ink-3); line-height: 1.6; }
+
+/* ------------------------------------------------------------ the trail */
+.trail { list-style: none; padding: 0; margin: var(--s-2) 0 0; counter-reset: none; }
+.trail__row {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr 2rem;
+  gap: var(--s-2);
+  padding-block: var(--s-2);
+  border-block-end: 1px solid var(--rule-hair);
+  align-items: start;
+}
+.trail__time  { color: var(--muted); font-size: .82rem; padding-block-start: .15rem; }
+.trail__action { font-weight: 600; color: var(--ink); }
+.trail__detail { margin-block-start: .2rem; font-size: .84rem; }
+.trail__index { color: var(--rule); font-size: .8rem; text-align: end; }
+
+/* The hashes are the point of the page: each entry's own, and the one it
+   follows. Shown truncated — the full digest is noise at this size. */
+.trail__hash {
+  margin-block-start: .35rem;
+  font-size: .72rem;
+  color: var(--muted);
+  display: flex;
+  gap: .4rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 40rem) {
+  .trail__row { grid-template-columns: 1fr 1.75rem; }
+  .trail__time { grid-column: 1; }
+  .trail__body { grid-column: 1 / -1; }
+  .trail__index { grid-column: 2; grid-row: 1; }
+}

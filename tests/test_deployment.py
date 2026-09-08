@@ -62,6 +62,41 @@ def test_the_interface_needs_no_build_step_and_no_third_party_script():
         assert asset in markup
 
 
+def test_the_published_build_links_to_nothing_outside_itself():
+    """The audience is being shown a working system, not its repository. A link
+    to a source host, an issue tracker or a docs file is not part of the
+    product, and once one is in the markup nobody notices it again."""
+    import subprocess
+    import sys
+
+    subprocess.run(
+        [sys.executable, "-m", "scripts.build_static", "--pages"],
+        cwd=ROOT, check=True, capture_output=True,
+    )
+
+    pages = list((ROOT / "site").glob("*.html"))
+    assert pages, "the Pages build produced no HTML"
+
+    for page in pages:
+        markup = page.read_text(encoding="utf-8")
+        for host in ("github.com", "github.io", "githubusercontent", "vercel.app", "huggingface.co"):
+            assert host not in markup, f"{page.name} links to {host}"
+
+
+def test_the_privacy_and_audit_pages_are_part_of_the_build():
+    """They are pages of the product, not documents elsewhere. If the build
+    stops emitting them the interface's own nav links start 404ing."""
+    for name in ("index.html", "privacy.html", "audit.html"):
+        assert (ROOT / "app" / "web" / name).exists(), name
+
+    index = (ROOT / "app" / "web" / "index.html").read_text(encoding="utf-8")
+    assert "/privacy.html" in index
+    assert "/audit.html" in index
+    # The old links pointed at raw API routes, which render as JSON to a reader.
+    assert "/v1/privacy/policy" not in index
+    assert "/v1/privacy/audit/verify" not in index
+
+
 def test_the_interface_asks_the_server_what_it_is_running():
     """`API` is the empty string on a served page — same origin — and null only
     when the page was opened from disk. A truthiness check reads the empty

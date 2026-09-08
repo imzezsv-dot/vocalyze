@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit trail — Vocalyze</title>
+<meta name="description" content="What the system did with your recording, in a hash-chained trail you can verify here.">
+<meta name="theme-color" content="#EFE9D8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Crect width='26' height='26' fill='%23EFE9D8'/%3E%3Cg fill='%230F4A34'%3E%3Crect x='1' y='10' width='2.5' height='6'/%3E%3Crect x='6' y='5' width='2.5' height='16'/%3E%3Crect x='11' y='8' width='2.5' height='10'/%3E%3Crect x='16' y='3' width='2.5' height='20'/%3E%3Crect x='21' y='10' width='2.5' height='6'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/fonts.css">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header class="container masthead">
+  <a class="wordmark" href="/">
+    <svg width="22" height="22" viewBox="0 0 26 26" aria-hidden="true">
+      <rect x="1"  y="10" width="2.5" height="6"  fill="#0F4A34"/>
+      <rect x="6"  y="5"  width="2.5" height="16" fill="#0F4A34"/>
+      <rect x="11" y="8"  width="2.5" height="10" fill="#0F4A34"/>
+      <rect x="16" y="3"  width="2.5" height="20" fill="#0F4A34"/>
+      <rect x="21" y="10" width="2.5" height="6"  fill="#0F4A34"/>
+    </svg>
+    Vocalyze
+  </a>
+  <nav>
+    <a href="/">Transcribe</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/audit.html" aria-current="page">Audit trail</a>
+  </nav>
+</header>
+
+<main>
+  <section class="container doc">
+    <span class="kicker"><span class="rule"></span>The audit trail</span>
+    <h1 class="doc__title">What the system did, and proof it has not been edited</h1>
+    <p class="doc__lede">
+      Every action is written to an append-only trail. Each entry carries the
+      SHA-256 of the entry before it, so removing or altering one breaks the
+      chain — and the check below recomputes every hash in front of you rather
+      than reporting a stored verdict.
+    </p>
+    <p class="doc__lede">
+      Actions only. No transcript text is ever written here, which is what makes
+      the trail safe to keep after the transcript itself is gone.
+    </p>
+
+    <div class="chain" id="chain-status" data-state="checking">
+      <div class="chain__verdict" id="chain-verdict">Checking the chain…</div>
+      <div class="chain__detail" id="chain-detail"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn--primary" id="verify">Verify the chain now</button>
+      <button class="btn btn--quiet" id="tamper" hidden>Show me a broken chain</button>
+      <button class="btn btn--quiet" id="clear" hidden>Clear this trail</button>
+    </div>
+
+    <h2>Entries</h2>
+    <p class="meta" id="entries-note"></p>
+    <ol class="trail" id="entries"></ol>
+
+    <div class="doc__foot">
+      <a class="btn btn--quiet" href="/">Back to transcribing</a>
+      <a class="btn btn--quiet" href="/privacy.html">Read the privacy policy</a>
+    </div>
+  </section>
+</main>
+
+<footer class="container site-foot">
+  <div class="colophon">
+    <p>Vocalyze · speaker-attributed transcripts with a brief you can check.</p>
+    <nav>
+      <a href="/">Transcribe</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/audit.html">Audit trail</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="/static/audit.js"></script>
+<script src="/static/audit-page.js"></script>
+</body>
+</html>

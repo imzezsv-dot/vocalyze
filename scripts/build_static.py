@@ -42,41 +42,41 @@ def build_pages() -> None:
         shutil.rmtree(PAGES)
     shutil.copytree(SRC, PAGES)
 
-    index = PAGES / "index.html"
-    markup = index.read_text(encoding="utf-8")
+    for page in PAGES.glob("*.html"):
+        markup = page.read_text(encoding="utf-8")
 
-    # /static/x -> ./x, so the page works at a repository subpath.
-    markup = re.sub(r'(href|src)="/static/', r'\1="./', markup)
+        # /static/x -> ./x, and every in-site link relative, so the build works
+        # at a repository subpath as well as at a domain root.
+        markup = re.sub(r'(href|src)="/static/', r'\1="./', markup)
+        markup = re.sub(r'href="/([a-z-]+\.html)"', r'href="./\1"', markup)
+        markup = markup.replace('href="/"', 'href="./"')
 
-    # `/docs`, `/v1/health` and the rest are the running service's routes.
-    # On a static host they are 404s, and a nav link that 404s reads as a
-    # broken site rather than as a build without a backend.
-    markup = markup.replace(
-        '<a href="/docs">API</a>\n    <span class="mode-badge"',
-        '<a href="https://github.com/imzezsv-dot/vocalyze" target="_blank" rel="noopener">Source</a>\n    <span class="mode-badge"',
-    )
-    markup = re.sub(
-        r'<nav>\s*<a href="/docs">API</a>\s*<a href="/v1/health">Health</a>\s*'
-        r'<a href="/v1/capabilities">Capabilities</a>\s*</nav>',
-        '<nav>\n      <a href="https://github.com/imzezsv-dot/vocalyze">Source</a>\n'
-        '      <a href="https://github.com/imzezsv-dot/vocalyze/blob/main/docs/API.md">API</a>\n'
-        '      <a href="https://github.com/imzezsv-dot/vocalyze/blob/main/docs/PRIVACY.md">Privacy</a>\n'
-        '    </nav>',
-        markup,
-    )
-    markup = markup.replace('href="/v1/privacy/policy"', 'href="https://github.com/imzezsv-dot/vocalyze/blob/main/docs/PRIVACY.md"')
-    markup = markup.replace('href="/v1/privacy/audit/verify"', 'href="https://github.com/imzezsv-dot/vocalyze/blob/main/docs/PRIVACY.md#pr-6--every-action-is-recorded-in-a-tamper-evident-trail"')
-    markup = markup.replace('<a class="wordmark" href="/">', '<a class="wordmark" href="./">')
+        # Say outright that there is no API, rather than letting each page
+        # discover it by requesting one and taking the 404. The probe works,
+        # but it puts failed requests in the console of a build whose whole
+        # claim is that it makes no requests.
+        markup = markup.replace(
+            "<body>",
+            "<body>\n<script>window.VOCALYZE_STATIC = true;</script>",
+            1,
+        )
 
-    index.write_text(markup, encoding="utf-8")
+        page.write_text(markup, encoding="utf-8")
+
+        # A link out to a repository, an issue tracker or a docs file is not
+        # part of the product. The audience for this build is being shown a
+        # working system, not its source.
+        for pattern in ("github.com", "github.io", "githubusercontent"):
+            if pattern in markup:
+                raise SystemExit(f"{page.name} links to {pattern}; the published build must not")
+
+        leftover = re.findall(r'(?:href|src)="/(?!/)[^"]*"', markup)
+        if leftover:
+            raise SystemExit(f"{page.name} has absolute paths that would 404 on a project page: {sorted(set(leftover))}")
 
     # Jekyll would otherwise try to process this directory and drop anything
     # it does not recognise.
     (PAGES / ".nojekyll").write_text("", encoding="utf-8")
-
-    leftover = re.findall(r'(?:href|src)="/(?!/)[^"]*"', markup)
-    if leftover:
-        raise SystemExit(f"absolute paths would 404 on a project page: {sorted(set(leftover))}")
 
     print(f"Built {PAGES} for GitHub Pages ({sum(1 for _ in PAGES.rglob('*'))} entries).")
 

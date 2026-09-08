@@ -10,7 +10,7 @@
   // to call at all (opened from disk). Test it against null explicitly: `''`
   // is falsy, so a truthiness check reads "served over http" as "no API" and
   // the interface never asks what it is running.
-  const API = location.protocol.startsWith('http') ? '' : null; // file:// has no API
+  const API = (window.VOCALYZE_STATIC || !location.protocol.startsWith('http')) ? null : '';
   const STAGES = ['normalizing', 'transcribing', 'diarizing', 'aligning', 'summarizing'];
   const STAGE_LABEL = {
     normalizing: 'Normalize audio',
@@ -321,6 +321,18 @@
       renderStages(stages);
     };
 
+    // The trail is written as the run happens, so the audit page shows this
+    // run rather than an illustration of one. Actions only — the file name is
+    // the user's own, and the recording's contents never appear here.
+    const audit = window.VocalyzeAudit;
+    if (audit) {
+      await audit.record('job.created', {
+        bytes: state.file.size,
+        extension: (state.file.name.split('.').pop() || '').toLowerCase(),
+        consent: true,
+      });
+    }
+
     try {
       const result = await window.VocalyzeBrowserASR.transcribe(state.file, {
         model: (window.VOCALYZE_BROWSER_MODEL || 'base'),
@@ -328,6 +340,20 @@
       });
       el.pipelineTitle.textContent = 'Done';
       state.job = null;
+      if (audit) {
+        await audit.record('audio.deleted', { reason: 'never stored — decoded in memory only' });
+        if (result.quality.redactions) {
+          await audit.record('transcript.redacted', { count: result.quality.redactions });
+        }
+        if (result.quality.dropped_claims) {
+          await audit.record('brief.claims_dropped', { count: result.quality.dropped_claims });
+        }
+        await audit.record('job.completed', {
+          speakers: result.transcript.speakers.length,
+          utterances: result.transcript.utterances.length,
+          seconds: Math.round(result.transcript.duration),
+        });
+      }
       show(result);
     } catch (error) {
       // Name the stage that failed rather than only the message: "failed to

@@ -32,8 +32,8 @@
   </a>
   <nav>
     <a href="#pipeline">Pipeline</a>
-    <a href="#ledger">Privacy</a>
-    <a href="/docs">API</a>
+    <a href="/privacy.html">Privacy</a>
+    <a href="/audit.html">Audit trail</a>
     <span class="mode-badge" id="mode-badge" data-mode="checking">checking…</span>
   </nav>
 </header>
@@ -258,8 +258,8 @@
 
       <div class="btn-row">
         <button class="btn btn--danger" id="delete-job" hidden>Delete this recording now</button>
-        <a class="btn btn--quiet" href="/v1/privacy/policy" target="_blank" rel="noopener">Read the live policy</a>
-        <a class="btn btn--quiet" href="/v1/privacy/audit/verify" target="_blank" rel="noopener">Verify the audit chain</a>
+        <a class="btn btn--quiet" href="/privacy.html">Read the privacy policy</a>
+        <a class="btn btn--quiet" href="/audit.html">Verify the audit chain</a>
       </div>
     </div>
   </section>
@@ -272,9 +272,8 @@
       Speech recognition by Whisper, diarization by pyannote, brief by the summariser — merged and verified here.
     </p>
     <nav>
-      <a href="/docs">API</a>
-      <a href="/v1/health">Health</a>
-      <a href="/v1/capabilities">Capabilities</a>
+      <a href="/privacy.html">Privacy</a>
+      <a href="/audit.html">Audit trail</a>
     </nav>
   </div>
 </footer>
@@ -284,6 +283,7 @@
      them to transcribe locally when no API answers — the static build's whole
      point. Both are inert when a server is there to do the work. -->
 <script src="/static/pipeline.js"></script>
+<script src="/static/audit.js"></script>
 <script src="/static/browser-asr.js"></script>
 <script src="/static/app.js"></script>
 </body>
