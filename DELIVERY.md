@@ -13,7 +13,7 @@ FastAPI Backend · Integration · Privacy Requirements**.
 | Source code | This repository | Review, and the report bibliography |
 | Live demo | The Vercel deployment (below) | The demo slot in the presentation |
 | Docs | [`README.md`](README.md), [`docs/API.md`](docs/API.md), [`docs/PRIVACY.md`](docs/PRIVACY.md), [`docs/INTEGRATION.md`](docs/INTEGRATION.md) | The report appendix |
-| Test evidence | `pytest` — 110 tests, no network, no weights | The "how do you know it works" question |
+| Test evidence | `pytest` — 111 tests, no network, no weights | The "how do you know it works" question |
 
 The other components — the dataset work, Whisper, pyannote and the LLM — plug
 into this layer through the three contracts in `app/pipeline/`:
@@ -38,7 +38,7 @@ pyannote do, so the interface is exercised end to end offline.
 **The tests:**
 
 ```bash
-pytest            # 110 tests, ~3 seconds
+pytest            # 111 tests, ~3 seconds
 ```
 
 **With the team's real models:**

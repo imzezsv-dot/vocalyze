@@ -1,10 +1,10 @@
-# Core service. Enough to run the API, the interface and the demo pipeline.
+# Runtime. Enough to serve the API, the interface and the scripted pipeline.
+#
+# Kept lean on purpose: this file is what a serverless bundle installs, and
+# every megabyte here is cold-start time and bundle-size risk on that host.
+# Test-only packages live in requirements-dev.txt.
 fastapi>=0.115,<1.0
-uvicorn[standard]>=0.30
+uvicorn>=0.30
 python-multipart>=0.0.9
 pydantic>=2.7,<3.0
 cryptography>=42.0
-
-# Testing
-pytest>=8.0
-httpx>=0.27

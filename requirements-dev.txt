@@ -1,0 +1,5 @@
+# Everything in the runtime, plus what the tests need.
+-r requirements.txt
+
+pytest>=8.0
+httpx>=0.27

@@ -10,7 +10,9 @@ and is only correct while it stays byte-identical.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
+import sys
 from pathlib import Path
 
 import pytest
@@ -239,6 +241,39 @@ def test_the_serverless_build_still_says_it_is_running_scripted_models(serverles
     """The interface reads this and badges itself. Telling someone a scripted
     sample is their meeting would be a lie."""
     assert serverless_client.get("/v1/capabilities").json()["demo_mode"] is True
+
+
+def test_the_entry_point_reports_why_it_failed_instead_of_a_blank_500(monkeypatch, tmp_path):
+    """When the bundle cannot import the service, every route answers 500 with
+    no body and the interface can only say "no API is reachable" — true and
+    useless. The entry point serves the import error instead, so the failure
+    can be read from a browser rather than guessed at."""
+    import importlib.util
+    import json
+
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "broken"))
+    # Make the import of the service fail the way a bad bundle does.
+    monkeypatch.setitem(sys.modules, "app.main", None)
+
+    spec = importlib.util.spec_from_file_location("vercel_entry_broken", ROOT / "api" / "index.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    received = []
+
+    async def send(message):
+        received.append(message)
+
+    async def receive():
+        return {"type": "http.request"}
+
+    asyncio.run(module.app({"type": "http", "method": "GET", "path": "/v1/capabilities"}, receive, send))
+
+    assert received[0]["status"] == 503
+    body = json.loads(received[1]["body"])
+    assert body["error"] == "service_unavailable"
+    assert body["cause"], "the import error itself has to be in the response"
+    assert body["python"]
 
 
 def test_the_vercel_entry_point_imports_and_exposes_the_app(monkeypatch, tmp_path):

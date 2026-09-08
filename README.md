@@ -26,7 +26,7 @@ Manually, if you prefer:
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 cp .env.example .env
 python -m app.core.crypto          # paste the key into ENCRYPTION_KEY in .env
 uvicorn app.main:app --reload
@@ -139,7 +139,7 @@ api/index.py                serverless entry point for the Vercel deployment
 pytest
 ```
 
-110 tests, about two seconds, no network and no model weights — they run
+111 tests, about three seconds, no network and no model weights — they run
 against the scripted backends, so the answer is the same on a laptop and in
 CI.
 
