@@ -51,8 +51,20 @@ class Settings:
     env: str = field(default_factory=lambda: os.getenv("VOCALYZE_ENV", "development"))
     host: str = field(default_factory=lambda: os.getenv("HOST", "127.0.0.1"))
     port: int = field(default_factory=lambda: _int("PORT", 8000))
+    # The published interface is a static site on a different origin, and it
+    # reaches a service like this one through `?api=`. Without its origin here
+    # the browser blocks every call and the page looks broken for a reason
+    # nothing in the interface can explain.
     cors_origins: list[str] = field(
-        default_factory=lambda: _list("CORS_ORIGINS", ["http://127.0.0.1:8000", "http://localhost:8000"])
+        default_factory=lambda: _list(
+            "CORS_ORIGINS",
+            [
+                "http://127.0.0.1:8000",
+                "http://localhost:8000",
+                "https://vocalyze-ai.github.io",
+                "https://imzezsv-dot.github.io",
+            ],
+        )
     )
 
     # ---- storage ----

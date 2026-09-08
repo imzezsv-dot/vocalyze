@@ -10,7 +10,34 @@
   // to call at all (opened from disk). Test it against null explicitly: `''`
   // is falsy, so a truthiness check reads "served over http" as "no API" and
   // the interface never asks what it is running.
-  const API = (window.VOCALYZE_STATIC || !location.protocol.startsWith('http')) ? null : '';
+  /* `?api=https://…` points the published interface at a service running
+     somewhere else — the notebook's, over its tunnel. That is how the static
+     site and the team's running pipeline become one system rather than two
+     separate things.
+
+     Only https, and the host is shown in the badge and the notice: a link is
+     something anyone can send, and a page quietly uploading a recording to a
+     server the reader did not choose would be exactly the failure this project
+     argues against. */
+  function externalApi() {
+    const requested = new URLSearchParams(location.search).get('api');
+    if (!requested) return null;
+    try {
+      const url = new URL(requested);
+      const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+      // https anywhere, or plain http only to this machine — a loopback
+      // address cannot be someone else's server, and running the service
+      // locally while using the published interface is a real case.
+      if (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) return null;
+      return url.origin;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  const EXTERNAL = externalApi();
+  const API = EXTERNAL
+    || ((window.VOCALYZE_STATIC || !location.protocol.startsWith('http')) ? null : '');
   const STAGES = ['normalizing', 'transcribing', 'diarizing', 'aligning', 'summarizing'];
   const STAGE_LABEL = {
     normalizing: 'Normalize audio',
@@ -124,6 +151,12 @@
       } else {
         setMode('live', `${capabilities.asr_backend} · ${capabilities.diarization_backend}`);
       }
+      if (EXTERNAL) {
+        // Never let the connection be silent. Whoever opens this link should
+        // be able to see where their recording is going.
+        el.badge.textContent += ` · ${new URL(EXTERNAL).host}`;
+        el.badge.title = `Connected to ${EXTERNAL}. Your recording is sent there to be processed.`;
+      }
       const privacy = capabilities.privacy;
       el.privacyNote.innerHTML =
         `Audio is ${privacy.encrypt_at_rest ? 'encrypted the moment it lands' : 'stored unencrypted (encryption is off)'} and ` +
@@ -136,6 +169,14 @@
       // and a server that answered 500 identically, and those need different
       // fixes — whoever is debugging the deployment should not have to guess.
       console.error('[vocalyze] /v1/capabilities failed:', error.message);
+      if (EXTERNAL) {
+        // An `?api=` link that cannot be reached is its own failure, and it is
+        // not the same as "this build has no backend". Say which.
+        setMode('offline', 'backend unreachable');
+        el.badge.title = `${EXTERNAL} did not answer.`;
+        say(`Could not reach ${new URL(EXTERNAL).host}. If it is a notebook tunnel, the notebook may have stopped — restart it and open the new link.`);
+        return null;
+      }
       // No API. On the static build that is not a degraded state — the models
       // run in the page — so say what this build actually does.
       if (window.VocalyzeBrowserASR && window.VocalyzePipeline) {

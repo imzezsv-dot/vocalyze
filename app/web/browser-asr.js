@@ -97,10 +97,17 @@
   async function loadSegmenter(onProgress) {
     if (state.segmenter !== null) return state.segmenter;
     try {
-      const { pipeline } = await loadTransformers();
-      state.segmenter = await pipeline('audio-frame-classification', SEGMENTATION, {
-        progress_callback: onProgress,
-      });
+      const { AutoProcessor, AutoModelForAudioFrameClassification } = await loadTransformers();
+      // There is no `audio-frame-classification` pipeline task — this model is
+      // driven through the model and processor directly, and the processor's
+      // `post_process_speaker_diarization` turns its logits into turns.
+      const [model, processor] = await Promise.all([
+        AutoModelForAudioFrameClassification.from_pretrained(SEGMENTATION, {
+          progress_callback: onProgress,
+        }),
+        AutoProcessor.from_pretrained(SEGMENTATION),
+      ]);
+      state.segmenter = { model, processor };
     } catch (error) {
       console.warn('[vocalyze] speaker segmentation unavailable:', error.message);
       state.segmenter = false;
@@ -108,23 +115,42 @@
     return state.segmenter;
   }
 
+  /* pyannote-segmentation-3.0 emits a *powerset* class per frame rather than a
+   * speaker id: with three speakers and at most two talking at once, the seven
+   * classes are silence, each speaker alone, and each pair overlapping. Class 0
+   * is silence and carries no attribution; a pair is crosstalk, which this
+   * system flags rather than assigning to a guess. */
+  function labelFor(id, classCount) {
+    if (id === 0) return null;                       // silence
+    const speakers = classCount >= 7 ? 3 : 2;
+    if (id <= speakers) return `SPEAKER_0${id - 1}`; // one speaker
+    return null;                                     // overlap
+  }
+
   async function diarize(audio, onProgress) {
     const segmenter = await loadSegmenter(onProgress);
     if (!segmenter) return null;
     try {
-      const output = await segmenter(audio);
+      const inputs = await segmenter.processor(audio);
+      const { logits } = await segmenter.model(inputs);
+      const classCount = logits.dims[logits.dims.length - 1];
+      const segments = segmenter.processor.post_process_speaker_diarization(logits, audio.length);
+
       const turns = [];
-      for (const item of output || []) {
-        // The model emits a label per frame window; anything not a speaker
-        // label is silence or overlap and carries no attribution.
-        if (!item.label || !/^SPEAKER/i.test(item.label)) continue;
-        turns.push({
-          start: Number(item.start),
-          end: Number(item.end),
-          speaker: String(item.label).toUpperCase(),
-        });
+      for (const segment of (segments && segments[0]) || []) {
+        const speaker = labelFor(segment.id, classCount);
+        if (!speaker || !(segment.end > segment.start)) continue;
+        const previous = turns[turns.length - 1];
+        // Consecutive frames of one speaker come back as separate segments;
+        // joining them keeps the timeline readable instead of shattering a
+        // sentence into a dozen turns.
+        if (previous && previous.speaker === speaker && segment.start - previous.end < 0.25) {
+          previous.end = segment.end;
+        } else {
+          turns.push({ start: segment.start, end: segment.end, speaker });
+        }
       }
-      return turns.length ? turns.sort((a, b) => a.start - b.start) : null;
+      return turns.length ? turns : null;
     } catch (error) {
       console.warn('[vocalyze] diarization failed:', error.message);
       return null;
