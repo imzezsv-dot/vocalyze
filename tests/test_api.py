@@ -42,6 +42,36 @@ def test_health_and_capabilities_describe_the_running_deployment(client):
     assert "wav" in capabilities["limits"]["allowed_extensions"]
 
 
+def test_a_scripted_transcript_is_never_badged_as_a_live_run():
+    """The whole claim of this project is that it does not present a fixture as
+    the user's meeting. `demo_mode` is what the interface badges itself with, so
+    it has to key on whether the *words* are real — a non-scripted summariser
+    running on top of a scripted ASR is still a scripted meeting."""
+    from app.config import Settings
+
+    scripted_asr_real_summariser = Settings(
+        asr_backend="mock", diarization_backend="mock", summarizer_backend="extractive"
+    )
+    assert scripted_asr_real_summariser.capabilities()["demo_mode"] is True
+
+    real_asr = Settings(asr_backend="whisper", diarization_backend="pyannote", summarizer_backend="llm")
+    assert real_asr.capabilities()["demo_mode"] is False
+    assert real_asr.capabilities()["scripted_backends"] == []
+
+
+def test_a_partly_scripted_run_names_which_stage_is_scripted():
+    """Whisper with no Hugging Face token: the words are the user's, the speaker
+    labels are not. The interface has to be able to say exactly that."""
+    from app.config import Settings
+
+    capabilities = Settings(
+        asr_backend="whisper", diarization_backend="mock", summarizer_backend="extractive"
+    ).capabilities()
+
+    assert capabilities["demo_mode"] is False       # the transcript is real
+    assert capabilities["scripted_backends"] == ["diarization"]
+
+
 def test_the_interface_is_served_by_the_same_process_as_the_api(client):
     page = client.get("/")
     assert page.status_code == 200

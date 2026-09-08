@@ -103,6 +103,47 @@ def test_the_sweeper_leaves_a_live_job_alone(store, tmp_path):
     assert store.get(record.id).state is JobState.queued
 
 
+def test_the_sweeper_shreds_plaintext_audio_left_by_a_killed_process(store, tmp_path):
+    """The one place plaintext audio touches disk must not outlive a crash.
+
+    The orchestrator shreds its scratch directory in a `finally`, and a
+    `finally` does not run when the process is killed — an OOM kill during a
+    long transcription, a container recycle. Nothing else knew that directory
+    existed, so the decoded WAV would have sat there unencrypted indefinitely.
+    """
+    import os
+    import time
+
+    from app.pipeline.orchestrator import WORKDIR_PREFIX
+
+    store.settings.ensure_dirs()
+    abandoned = store.settings.data_dir / f"{WORKDIR_PREFIX}job123-abc"
+    abandoned.mkdir()
+    (abandoned / "audio.wav").write_bytes(b"RIFF plaintext meeting audio")
+
+    stale = time.time() - 7200
+    os.utime(abandoned, (stale, stale))
+
+    audit = AuditLog(tmp_path / "audit.log", enabled=True)
+    assert RetentionSweeper(store, audit, 3600).sweep_abandoned_workdirs() == 1
+    assert not abandoned.exists()
+
+
+def test_the_sweeper_leaves_a_running_job_its_scratch_directory(store, tmp_path):
+    """A ninety-minute meeting is still being transcribed when the sweep fires
+    every five minutes. Deleting its audio mid-run would fail the job."""
+    from app.pipeline.orchestrator import WORKDIR_PREFIX
+
+    store.settings.ensure_dirs()
+    live = store.settings.data_dir / f"{WORKDIR_PREFIX}job456-def"
+    live.mkdir()
+    (live / "audio.wav").write_bytes(b"RIFF still in use")
+
+    audit = AuditLog(tmp_path / "audit.log", enabled=True)
+    assert RetentionSweeper(store, audit, 3600).sweep_abandoned_workdirs() == 0
+    assert (live / "audio.wav").exists()
+
+
 def test_a_per_job_retention_choice_overrides_the_default(store):
     record, _token, _key = store.create(filename="m.wav", size_bytes=1, privacy={"retention_hours": 1})
     window = record.expires_at - record.created_at

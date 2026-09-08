@@ -100,9 +100,16 @@
       state.capabilities = capabilities;
       state.live = true;
       state.persistent = capabilities.persistent_jobs !== false;
+      const scripted = capabilities.scripted_backends || [];
       if (capabilities.demo_mode) {
         setMode('demo', 'sample models');
         el.badge.title = 'The API is running, but with scripted models. Set ASR_BACKEND=whisper for real transcription.';
+      } else if (scripted.length) {
+        // Real transcription, but something after it is still scripted —
+        // usually diarization without a Hugging Face token. Say which, rather
+        // than badging the whole run as live.
+        setMode('partial', `${capabilities.asr_backend} · ${scripted.join(' + ')} scripted`);
+        el.badge.title = `These are your words, but ${scripted.join(' and ')} ${scripted.length > 1 ? 'are' : 'is'} scripted rather than a real model.`;
       } else {
         setMode('live', `${capabilities.asr_backend} · ${capabilities.diarization_backend}`);
       }

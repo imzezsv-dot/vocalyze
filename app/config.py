@@ -139,13 +139,32 @@ class Settings:
             path.mkdir(parents=True, exist_ok=True)
             os.chmod(path, 0o700)
 
+    @property
+    def scripted_backends(self) -> list[str]:
+        """Which components are replaying the fixture rather than running a model."""
+        return [
+            name
+            for name, backend in (
+                ("asr", self.asr_backend),
+                ("diarization", self.diarization_backend),
+                ("summarizer", self.summarizer_backend),
+            )
+            if backend.lower() == "mock"
+        ]
+
     def capabilities(self) -> dict:
         """What this deployment can actually do — surfaced in the UI."""
         return {
             "asr_backend": self.asr_backend,
             "diarization_backend": self.diarization_backend,
             "summarizer_backend": self.summarizer_backend,
-            "demo_mode": {self.asr_backend, self.diarization_backend, self.summarizer_backend} == {"mock"},
+            # Keyed on the ASR backend, not on all three being scripted. The
+            # words are what a reader takes as their meeting, and a scripted ASR
+            # means the words are a fixture no matter what runs after it —
+            # `SUMMARIZER_BACKEND=extractive` alone used to clear this flag and
+            # badge a replayed sample as a live run.
+            "demo_mode": self.asr_backend.lower() == "mock",
+            "scripted_backends": self.scripted_backends,
             # False on a serverless host: the pipeline runs inline and the
             # container's storage goes with the request, so a later call
             # cannot reach the job. The interface reads this and exports from

@@ -10,12 +10,13 @@ identical: blobs shredded, wrapped key destroyed, tombstone kept.
 from __future__ import annotations
 
 import asyncio
+import time
 from datetime import datetime, timezone
 
 from ..schemas import JobState
 from .audit import AuditLog
 from .logging import get_logger
-from .store import JobStore
+from .store import JobStore, _shred
 
 log = get_logger("vocalyze.retention")
 
@@ -67,4 +68,43 @@ class RetentionSweeper:
                 purged += 1
         if purged:
             log.info("retention sweep removed %d job(s)", purged)
+        self.sweep_abandoned_workdirs()
         return purged
+
+    def sweep_abandoned_workdirs(self, older_than_seconds: int = 3600) -> int:
+        """Remove pipeline scratch directories left behind by a killed process.
+
+        The orchestrator decodes each upload to a plaintext 16 kHz WAV inside a
+        scratch directory and shreds it in a `finally`. A `finally` does not run
+        when the process is killed — an out-of-memory kill during a long Whisper
+        pass, a container recycle — and nothing else knew about that directory,
+        so the one place plaintext audio touches disk could outlive the job that
+        justified it. This closes that gap: any scratch directory older than a
+        job could plausibly still be using is shredded.
+
+        The age floor matters. A running job owns its directory, and a sweep
+        firing every five minutes must not delete audio out from under a
+        ninety-minute meeting still being transcribed.
+        """
+        from ..pipeline.orchestrator import WORKDIR_PREFIX
+
+        cutoff = time.time() - max(older_than_seconds, 60)
+        removed = 0
+        try:
+            candidates = list(self.store.settings.data_dir.glob(f"{WORKDIR_PREFIX}*"))
+        except OSError as exc:
+            log.warning("could not scan for abandoned work directories: %s", exc)
+            return 0
+
+        for path in candidates:
+            try:
+                if not path.is_dir() or path.stat().st_mtime > cutoff:
+                    continue
+            except OSError:
+                continue
+            _shred(path)
+            removed += 1
+            self.audit.record("workdir.abandoned_removed", path=path.name)
+        if removed:
+            log.info("retention sweep shredded %d abandoned work director(ies)", removed)
+        return removed

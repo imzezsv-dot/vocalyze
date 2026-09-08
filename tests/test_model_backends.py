@@ -125,6 +125,143 @@ def test_a_diarizer_that_fails_costs_labels_but_not_the_meeting(client):
         registry._cache.pop("diarizer", None)
 
 
+# ----------------------------------------------------------------- Whisper
+class FakeFasterWord:
+    """faster-whisper: `.word` keeps the leading space, `.probability` is
+    already a probability."""
+
+    def __init__(self, start, end, word, probability):
+        self.start, self.end, self.word, self.probability = start, end, word, probability
+
+
+class FakeFasterSegment:
+    def __init__(self, start, end, text, words):
+        self.start, self.end, self.text, self.words = start, end, text, words
+        self.avg_logprob = -0.22          # a log probability, not a probability
+        self.no_speech_prob = 0.01
+
+
+class FakeFasterInfo:
+    language, duration = "en", 4.5
+
+
+class FakeFasterModel:
+    def transcribe(self, _path, **_kwargs):
+        words = [
+            FakeFasterWord(0.0, 0.8, " Right,", 0.94),
+            FakeFasterWord(0.8, 1.6, " let's", 0.91),
+            FakeFasterWord(1.6, 2.4, " start.", 0.88),
+            FakeFasterWord(2.4, 2.4, " ", 0.10),      # an empty word: dropped
+        ]
+        return iter([FakeFasterSegment(0.0, 2.4, " Right, let's start. ", words)]), FakeFasterInfo()
+
+
+class FakeOpenAIModel:
+    """openai-whisper returns plain dicts, and `word` keeps its leading space."""
+
+    def transcribe(self, _path, **_kwargs):
+        return {
+            "language": "en",
+            "segments": [
+                {
+                    "start": 0.0,
+                    "end": 2.4,
+                    "text": " Right, let's start. ",
+                    "avg_logprob": -0.22,
+                    "no_speech_prob": 0.01,
+                    "words": [
+                        {"start": 0.0, "end": 0.8, "word": " Right,", "probability": 0.94},
+                        {"start": 0.8, "end": 1.6, "word": " let's", "probability": 0.91},
+                        {"start": 1.6, "end": 2.4, "word": " start.", "probability": 0.88},
+                        {"start": 2.4, "end": 2.4, "word": " ", "probability": 0.10},
+                    ],
+                }
+            ],
+        }
+
+
+@pytest.mark.parametrize(
+    "flavour, model",
+    [("faster-whisper", FakeFasterModel()), ("openai-whisper", FakeOpenAIModel())],
+)
+def test_either_whisper_package_produces_the_same_words(flavour, model, monkeypatch):
+    """The ASR component may hand this layer either package — the notebook uses
+    openai-whisper, the container prefers faster-whisper. Word timings are what
+    make speaker attribution accurate, so both paths must yield the same ones."""
+    from app.pipeline.asr import WhisperASR
+
+    backend = WhisperASR(Settings())
+    monkeypatch.setattr(backend, "_load", lambda: model)
+    monkeypatch.setattr(backend, "_flavour", flavour, raising=False)
+    backend._flavour = flavour
+
+    result = backend.transcribe(Path("/dev/null"))
+
+    assert len(result.segments) == 1
+    words = result.segments[0].words
+    assert [(w.start, w.end, w.text) for w in words] == [
+        (0.0, 0.8, "Right,"),      # the leading space is stripped, not carried
+        (0.8, 1.6, "let's"),
+        (1.6, 2.4, "start."),
+    ]  # the whitespace-only word is dropped rather than becoming an empty token
+    assert result.segments[0].text == "Right, let's start."
+
+
+def test_a_segment_log_probability_is_read_as_a_confidence(monkeypatch):
+    """avg_logprob is a *log* probability. Passing it through unconverted would
+    put a negative number in a field the UI renders as a percentage."""
+    from app.pipeline.asr import WhisperASR
+
+    backend = WhisperASR(Settings())
+    monkeypatch.setattr(backend, "_load", lambda: FakeFasterModel())
+    backend._flavour = "faster-whisper"
+
+    segment = backend.transcribe(Path("/dev/null")).segments[0]
+    assert 0.0 <= segment.confidence <= 1.0
+    assert round(segment.confidence, 2) == 0.80        # exp(-0.22)
+    assert segment.words[0].confidence == 0.94         # already a probability: unchanged
+
+
+def test_whisper_words_reach_the_aligner_as_attributed_speech():
+    """The contract end to end: what the ASR component returns, merged with what
+    the diarization component returns, with no model installed on either side."""
+    from app.pipeline.alignment import build_transcript
+    from app.schemas import ASRResult, ASRSegment, DiarizationResult, SpeakerTurn, Word
+
+    asr = ASRResult(
+        language="en",
+        duration=2.4,
+        segments=[
+            ASRSegment(
+                start=0.0, end=2.4, text="Right, let's start.", confidence=0.8,
+                words=[
+                    Word(start=0.0, end=0.8, text="Right,", confidence=0.94),
+                    Word(start=0.8, end=1.6, text="let's", confidence=0.91),
+                    Word(start=1.6, end=2.4, text="start.", confidence=0.88),
+                ],
+            )
+        ],
+        model="small", backend="faster-whisper",
+    )
+    # The turn boundary lands mid-word, which is what pyannote actually does:
+    # "let's" (0.8-1.6) is 0.2s inside the first turn and 0.6s inside the
+    # second. Majority overlap gives it to the second speaker rather than
+    # splitting the word or matching on the boundary.
+    turns = DiarizationResult(
+        turns=[
+            SpeakerTurn(start=0.0, end=1.0, speaker="SPEAKER_00"),
+            SpeakerTurn(start=1.0, end=2.4, speaker="SPEAKER_01"),
+        ],
+        num_speakers=2, backend="pyannote", model="speaker-diarization-3.1",
+    )
+
+    transcript, _stats = build_transcript(asr, turns)
+
+    assert transcript.speakers == ["SPEAKER_00", "SPEAKER_01"]
+    assert [u.text for u in transcript.utterances] == ["Right,", "let's start."]
+    assert [u.speaker for u in transcript.utterances] == ["SPEAKER_00", "SPEAKER_01"]
+
+
 # ----------------------------------------------------------- the container
 DOCKERFILE = (Path(__file__).resolve().parent.parent / "Dockerfile").read_text(encoding="utf-8")
 

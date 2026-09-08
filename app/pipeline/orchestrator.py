@@ -43,6 +43,16 @@ ORIGINAL_BLOB = "original.enc"
 AUDIO_BLOB = "audio.enc"
 RESULT_BLOB = "result.enc"
 
+WORKDIR_PREFIX = "vocalyze-work-"
+"""Scratch directories the pipeline decodes audio into.
+
+Named with a prefix rather than an opaque temp name so the retention sweeper
+can recognise one abandoned by a killed process. What lives in here is
+*plaintext* audio — the only point in the system where that is true on disk —
+so a crash between `mkdtemp` and the `finally` must not leave it lying around
+until someone notices.
+"""
+
 
 class Orchestrator:
     def __init__(self, settings: Settings, store: JobStore, audit: AuditLog):
@@ -57,7 +67,7 @@ class Orchestrator:
         record = self.store.get(job_id)
         data_key = self.store.data_key(record)
         privacy = effective_privacy(self.settings, record)
-        workdir = Path(tempfile.mkdtemp(prefix=f"vocalyze-{job_id}-", dir=self.settings.data_dir))
+        workdir = Path(tempfile.mkdtemp(prefix=f"{WORKDIR_PREFIX}{job_id}-", dir=self.settings.data_dir))
 
         try:
             wav_path = self._normalise(record, data_key, workdir)
@@ -103,9 +113,11 @@ class Orchestrator:
             log.exception("job %s failed", job_id)
             self._fail(job_id, "pipeline", f"{exc.__class__.__name__}: {exc}")
         finally:
-            for leftover in workdir.glob("*"):
-                _shred(leftover)
-            workdir.rmdir()
+            # `_shred` recurses into directories and swallows OSError, so the
+            # cleanup cannot itself raise out of `run()` — a failure here would
+            # otherwise escape past `_fail` and reach the worker as a crash on a
+            # job that had already been recorded as failed.
+            _shred(workdir)
 
     # ------------------------------------------------------------------
     def _fail(self, job_id: str, stage: str, message: str) -> None:

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import re
 import sys
 from pathlib import Path
 
@@ -45,8 +46,18 @@ def test_the_interface_needs_no_build_step_and_no_third_party_script():
     """No framework, no CDN: three files served by the same process as the
     API. A blocked CDN must never be able to take the interface down."""
     markup = (ROOT / "app" / "web" / "index.html").read_text(encoding="utf-8")
-    assert "http://" not in markup
-    assert "https://" not in markup
+
+    # What matters is that nothing is *fetched* from off-host. A `data:` URI is
+    # the document itself, so an SVG namespace declaration inside one is not a
+    # request — strip those before looking, or the check bans inline assets for
+    # containing a string.
+    # The delimiter is captured and back-referenced: a data: URI routinely
+    # contains the *other* quote character, so matching on either one ends the
+    # value early and leaves the rest of it in the text being checked.
+    fetchable = re.sub(r"""(?:src|href)\s*=\s*(["'])data:.*?\1""", "", markup, flags=re.DOTALL)
+    assert "http://" not in fetchable
+    assert "https://" not in fetchable
+
     for asset in ("/static/app.js", "/static/styles.css", "/static/demo-data.js"):
         assert asset in markup
 

@@ -127,6 +127,9 @@ a:hover { color: var(--accent-2); }
   border: 1px solid var(--rule);
 }
 .mode-badge[data-mode="demo"]    { color: #7A5210; border-color: #C9AF6A; }
+/* Real transcription with a scripted stage after it — closer to live than to
+   demo, and it must not read as either. */
+.mode-badge[data-mode="partial"] { color: #6A5093; border-color: #A796C4; }
 .mode-badge[data-mode="offline"] { color: var(--flag); border-color: #C69077; }
 
 /* ============================================================
