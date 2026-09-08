@@ -24,6 +24,18 @@ class DiarizationBackend(Protocol):
     def diarize(self, audio_path: Path, num_speakers: int | None = None) -> DiarizationResult: ...
 
 
+def _annotation_of(output):
+    """The speaker timeline, whichever shape pyannote returned it in.
+
+    Through 3.x a pipeline call returns an `Annotation` directly. From 4.0 it
+    returns a result object carrying the annotation on `.speaker_diarization`.
+    Calling `.itertracks` on the 4.x object raises `AttributeError`, which the
+    orchestrator would record as a failed diarization — every speaker label
+    lost, on a version bump alone.
+    """
+    return getattr(output, "speaker_diarization", output)
+
+
 # ---------------------------------------------------------------------------
 class MockDiarizer:
     """Turns from the scripted meeting, with boundary jitter and one genuine
@@ -71,9 +83,23 @@ class PyannoteDiarizer:
             )
 
         log.info("loading %s", self.settings.pyannote_model)
-        pipeline = Pipeline.from_pretrained(
-            self.settings.pyannote_model, use_auth_token=self.settings.huggingface_token
-        )
+        # pyannote.audio renamed the argument: `use_auth_token` through 3.x,
+        # `token` from 4.0. Try the current name first so a fresh install works,
+        # and fall back rather than failing on a pinned older one.
+        try:
+            pipeline = Pipeline.from_pretrained(
+                self.settings.pyannote_model, token=self.settings.huggingface_token
+            )
+        except TypeError:
+            pipeline = Pipeline.from_pretrained(
+                self.settings.pyannote_model, use_auth_token=self.settings.huggingface_token
+            )
+        if pipeline is None:
+            raise RuntimeError(
+                f"pyannote returned no pipeline for {self.settings.pyannote_model}. "
+                "That means the token is not valid for this model — accept the terms at "
+                f"https://hf.co/{self.settings.pyannote_model} with the same account."
+            )
         try:
             import torch  # type: ignore
 
@@ -89,7 +115,7 @@ class PyannoteDiarizer:
         kwargs: dict = {}
         if num_speakers:
             kwargs["num_speakers"] = int(num_speakers)
-        annotation = pipeline(str(audio_path), **kwargs)
+        annotation = _annotation_of(pipeline(str(audio_path), **kwargs))
 
         turns = [
             SpeakerTurn(start=float(segment.start), end=float(segment.end), speaker=str(speaker))

@@ -125,7 +125,7 @@ app/
 │   └── registry.py         backend selection
 └── web/                    the interface (no build step, no framework)
 docs/                       PRIVACY.md · INTEGRATION.md · API.md
-tests/                      alignment · grounding · redaction · privacy · API · deployment
+tests/                      alignment · grounding · redaction · privacy · API · deployment · model backends
 tools/make_demo.py          regenerates the offline sample from the real pipeline
 scripts/build_static.py     mirrors app/web/ into public/ for the edge CDN
 api/index.py                serverless entry point for the Vercel deployment
@@ -139,7 +139,7 @@ api/index.py                serverless entry point for the Vercel deployment
 pytest
 ```
 
-101 tests, about two seconds, no network and no model weights — they run
+110 tests, about two seconds, no network and no model weights — they run
 against the scripted backends, so the answer is the same on a laptop and in
 CI.
 

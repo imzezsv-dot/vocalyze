@@ -13,7 +13,7 @@ FastAPI Backend · Integration · Privacy Requirements**.
 | Source code | This repository | Review, and the report bibliography |
 | Live demo | The Vercel deployment (below) | The demo slot in the presentation |
 | Docs | [`README.md`](README.md), [`docs/API.md`](docs/API.md), [`docs/PRIVACY.md`](docs/PRIVACY.md), [`docs/INTEGRATION.md`](docs/INTEGRATION.md) | The report appendix |
-| Test evidence | `pytest` — 101 tests, no network, no weights | The "how do you know it works" question |
+| Test evidence | `pytest` — 110 tests, no network, no weights | The "how do you know it works" question |
 
 The other components — the dataset work, Whisper, pyannote and the LLM — plug
 into this layer through the three contracts in `app/pipeline/`:
@@ -38,7 +38,7 @@ pyannote do, so the interface is exercised end to end offline.
 **The tests:**
 
 ```bash
-pytest            # 101 tests, ~2 seconds
+pytest            # 110 tests, ~3 seconds
 ```
 
 **With the team's real models:**
@@ -93,20 +93,33 @@ the 10-second Hobby ceiling. `tests/test_deployment.py` covers this path.
 
 Any host that takes a Dockerfile: Hugging Face Spaces, Render, Fly, Railway.
 
-```
-1. huggingface.co/new-space → Docker template, name it "vocalyze".
-2. Settings → Variables and secrets:
-     ENCRYPTION_KEY      = (output of `python -m app.core.crypto`)
-     ASR_BACKEND         = whisper
-     DIARIZATION_BACKEND = pyannote
-     HUGGINGFACE_TOKEN   = hf_…
-     SUMMARIZER_BACKEND  = llm          # optional
-3. git remote add hf https://huggingface.co/spaces/<you>/vocalyze
-4. git push hf HEAD:main
+```bash
+./scripts/deploy_space.sh <your-hf-username>
 ```
 
+That creates the Space, pushes this repository to it, and prints the runtime
+variables to set. The Hugging Face account is the one part that cannot be
+scripted: the Space is created under it, and the pyannote licence is accepted
+by it.
+
+Then, in the Space's **Settings → Variables and secrets**:
+
+```
+ENCRYPTION_KEY      = (output of `python -m app.core.crypto`)
+HUGGINGFACE_TOKEN   = hf_…
+ASR_BACKEND         = whisper
+DIARIZATION_BACKEND = pyannote
+WHISPER_MODEL       = small        # large-v3 only on a GPU tier
+SUMMARIZER_BACKEND  = llm          # optional, needs LLM_BASE_URL
+```
+
+And accept the terms with that same account on **both** pages, or pyannote
+answers 401: [speaker-diarization-3.1](https://hf.co/pyannote/speaker-diarization-3.1)
+and [segmentation-3.0](https://hf.co/pyannote/segmentation-3.0).
+
 The Space reads `README_HF.md` as its front matter — that `---` block sets the
-SDK to Docker and the port to 7860.
+SDK to Docker and the port to 7860. The image already carries the model
+dependencies, so switching backends is configuration, not a rebuild.
 
 The two are complementary: Vercel is the always-on preview of the system's
 shape; the Docker image is the same system with the real models behind it.

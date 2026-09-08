@@ -1,8 +1,15 @@
 # Real model backends. Only needed if ASR_BACKEND, DIARIZATION_BACKEND or
 # SUMMARIZER_BACKEND is switched away from `mock`.
 
+# faster-whisper only: same weights as openai-whisper, roughly four times
+# faster on the same hardware, and it streams segments so a long meeting does
+# not sit in memory. `WhisperASR` still falls back to openai-whisper if that
+# is what a machine happens to have — installing both here only doubles the
+# image for no gain.
 faster-whisper>=1.0
-openai-whisper>=20231117 ; python_version >= "3.9"
 pyannote.audio>=3.1
 torch>=2.1
+
+# The LLM summariser speaks plain OpenAI-compatible HTTP through urllib, so
+# this is only needed if you swap in a backend that wants the SDK.
 openai>=1.30
