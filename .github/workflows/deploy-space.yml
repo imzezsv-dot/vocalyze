@@ -1,0 +1,65 @@
+name: Publish the live site
+
+# Publishes Vocalyze as a Hugging Face Space that transcribes real audio.
+#
+# Runs here rather than on a laptop so that publishing needs no local Python,
+# no virtualenv and no terminal — the whole thing is a button in the Actions
+# tab, which works from a phone.
+#
+# One-time setup:
+#   1. Create a WRITE token: https://huggingface.co/settings/tokens
+#   2. Repo Settings -> Secrets and variables -> Actions -> New repository secret
+#      Name: HF_TOKEN     Value: hf_...
+#   3. Actions -> "Publish the live site" -> Run workflow
+#
+# The token is the one part that cannot be automated: the Space is created
+# under your Hugging Face account, and only you can authorise that.
+
+on:
+  workflow_dispatch:
+    inputs:
+      space_name:
+        description: "Space name (the URL becomes huggingface.co/spaces/<you>/<name>)"
+        required: true
+        default: vocalyze
+      whisper_model:
+        description: "Whisper model — base is right for a free CPU Space"
+        required: true
+        default: base
+        type: choice
+        options: [tiny, base, small, medium, large-v3]
+      private:
+        description: "Make the Space private"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install the Hugging Face client
+        run: pip install --quiet "huggingface_hub>=0.34" cryptography
+
+      - name: Publish
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          SPACE_NAME: ${{ inputs.space_name }}
+          WHISPER_MODEL: ${{ inputs.whisper_model }}
+          PRIVATE: ${{ inputs.private }}
+        run: |
+          if [ -z "${HF_TOKEN:-}" ]; then
+            echo "::error::HF_TOKEN is not set. Add it under Settings -> Secrets and variables -> Actions, then run this again."
+            exit 1
+          fi
+          python .github/scripts/publish_space.py
+
+      - name: Where it lives
+        if: success()
+        run: cat "$GITHUB_STEP_SUMMARY" || true
