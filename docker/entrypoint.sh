@@ -13,11 +13,17 @@ fi
 
 echo "[vocalyze] asr=${ASR_BACKEND:-mock} diarization=${DIARIZATION_BACKEND:-mock} summariser=${SUMMARIZER_BACKEND:-mock}"
 
-# A real model is downloaded on first use, not at build time — the weights are
-# gigabytes and licence acceptance is per-account. Say so, so a slow first
-# request reads as a download rather than a hang.
-if [ "${ASR_BACKEND:-mock}" != "mock" ] || [ "${DIARIZATION_BACKEND:-mock}" != "mock" ]; then
-  echo "[vocalyze] Real models selected. The first transcription downloads weights and will be slow."
+if [ "${ASR_BACKEND:-mock}" = "mock" ]; then
+  echo "[vocalyze] ASR is scripted: an upload returns the sample meeting, not the caller's audio."
+  echo "[vocalyze] Set ASR_BACKEND=whisper to transcribe real recordings."
+else
+  echo "[vocalyze] Transcribing real audio with Whisper ${WHISPER_MODEL:-base} on ${WHISPER_DEVICE:-auto}."
+fi
+
+# pyannote is downloaded on first use, not at build time: the weights are
+# gated and licence acceptance is per-account, so they cannot be baked in.
+if [ "${DIARIZATION_BACKEND:-mock}" = "pyannote" ]; then
+  echo "[vocalyze] pyannote selected — the first request downloads its weights and will be slow."
 fi
 
 exec uvicorn app.main:app --host "${HOST:-0.0.0.0}" --port "${PORT:-7860}"

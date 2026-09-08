@@ -16,6 +16,13 @@ cd "$(dirname "$0")/.."
 
 SPACE_NAME="${1:-vocalyze}"
 
+# `base` is the free CPU tier's model: int8 `base` runs faster than real time
+# on 2 shared cores, `small` runs at roughly real time, and `large-v3` is far
+# slower than real time. Override for a GPU tier:
+#
+#     WHISPER_MODEL=large-v3 ./scripts/deploy_space.sh
+WHISPER_MODEL="${WHISPER_MODEL:-base}"
+
 step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 warn() { printf '\033[33m    %s\033[0m\n' "$1"; }
 
@@ -90,8 +97,10 @@ step "Creating the Space $REPO_ID"
   --env "ASR_BACKEND=whisper" \
   --env "DIARIZATION_BACKEND=$DIARIZATION" \
   --env "SUMMARIZER_BACKEND=extractive" \
-  --env "WHISPER_MODEL=small" \
-  --env "MAX_UPLOAD_MB=200"
+  --env "WHISPER_MODEL=$WHISPER_MODEL" \
+  --env "WHISPER_DEVICE=cpu" \
+  --env "MAX_UPLOAD_MB=50" \
+  --env "MAX_DURATION_MINUTES=15"
 
 # ----------------------------------------------------------- uploading it
 # Uploaded rather than pushed: this touches no git remote, no branch and no
@@ -119,10 +128,17 @@ $(printf '\033[1m==> Done.\033[0m')
 
     Your site:  https://huggingface.co/spaces/$REPO_ID
 
-    It is building now — about five minutes the first time, because the image
-    installs Whisper and pyannote. Then it transcribes real audio: uploads up
-    to 200 MB, no scripted sample.
+    It is building now — five to ten minutes the first time, because the image
+    installs Whisper and bakes the '$WHISPER_MODEL' weights into itself. Watch
+    the build log on that page; the site answers as soon as it turns green.
 
-    The first transcription also downloads the model weights, so that one is
-    slow. Later ones run at roughly real time on the free CPU tier.
+    After that it transcribes real audio with no download on the first request.
+    Recordings up to 50 MB and 15 minutes, on two shared CPU cores.
+
+    Diarization is '$DIARIZATION'. Approximate speaker separation shows in the
+    interface as a badge naming the scripted stage, rather than being passed
+    off as a real model.
+
+    For a presentation: open it once before you present. A free Space sleeps
+    after a period of inactivity and takes about thirty seconds to wake.
 EOF

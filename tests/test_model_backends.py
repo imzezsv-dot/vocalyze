@@ -277,6 +277,37 @@ def test_the_image_runs_as_the_uid_hugging_face_uses():
     assert "USER vocalyze" in DOCKERFILE
 
 
+def test_the_image_transcribes_real_audio_by_default():
+    """This image is the always-on deployment people are shown. A visitor who
+    uploads their own recording and is handed the scripted sample meeting has
+    been shown nothing, so the real backend has to be the default here — the
+    scripted one stays available through ASR_BACKEND=mock."""
+    assert "ASR_BACKEND=whisper" in DOCKERFILE
+    assert "SUMMARIZER_BACKEND=extractive" in DOCKERFILE
+
+
+def test_the_image_bakes_the_whisper_weights_in():
+    """Downloading weights on first use means the first visitor waits minutes on
+    what looks like a hang. Baking them costs image size once."""
+    assert "faster_whisper import WhisperModel" in DOCKERFILE
+    assert "ARG WHISPER_MODEL=base" in DOCKERFILE, (
+        "a free Space is 2 shared cores: int8 `base` beats real time there, "
+        "`small` roughly matches it, `large-v3` is far slower"
+    )
+
+
+def test_the_image_caps_uploads_to_what_two_cores_can_finish():
+    """A refusal that says why beats a progress bar that never moves."""
+    assert "MAX_DURATION_MINUTES=15" in DOCKERFILE
+    assert "MAX_UPLOAD_MB=50" in DOCKERFILE
+
+
+def test_the_image_does_not_default_to_a_gated_model():
+    """pyannote needs a token and per-account licence acceptance. Defaulting to
+    it would make every fresh deployment fail its first diarization."""
+    assert "DIARIZATION_BACKEND=mock" in DOCKERFILE
+
+
 def test_the_image_writes_only_where_that_user_can():
     """A free Space has no /data — that is paid persistent storage — and a
     process that cannot write its own cache cannot download a model."""
