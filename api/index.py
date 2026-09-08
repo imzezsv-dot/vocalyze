@@ -37,6 +37,12 @@ os.environ.setdefault("SUMMARIZER_BACKEND", "mock")
 os.environ.setdefault("DATA_DIR", "/tmp/vocalyze")
 os.environ.setdefault("AUDIT_LOG_ENABLED", "false")
 os.environ.setdefault("RETENTION_SWEEP_SECONDS", "999999")
+# Vercel rejects a request body over 4.5 MB at the edge, before the function
+# runs. Advertising the repository default of 200 MB here would mean the
+# interface accepts a file, sends it, and gets back a platform error this
+# service never saw and cannot explain. Better to state the real limit and
+# refuse the file in the browser, with a reason.
+os.environ.setdefault("MAX_UPLOAD_MB", "4")
 try:
     if not os.environ.get("ENCRYPTION_KEY"):
         from app.core.crypto import generate_service_key

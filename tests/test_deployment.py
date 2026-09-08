@@ -228,6 +228,24 @@ def test_the_interface_keys_export_and_delete_off_persistence():
     assert "if (state.live && state.job) {" not in script
 
 
+def test_the_serverless_build_advertises_the_hosts_real_upload_limit():
+    """Vercel rejects a request body over 4.5 MB at the edge, before the
+    function runs. Advertising the repository default of 200 MB would mean the
+    interface accepts a file, uploads it, and receives a platform error this
+    service never saw and cannot explain."""
+    entry = (ROOT / "api" / "index.py").read_text(encoding="utf-8")
+    assert 'setdefault("MAX_UPLOAD_MB", "4")' in entry
+
+
+def test_the_interface_refuses_an_oversized_file_before_uploading_it():
+    script = (ROOT / "app" / "web" / "app.js").read_text(encoding="utf-8")
+    assert "function rejectReason" in script
+    assert "limits.max_upload_mb" in script
+    assert "limits.allowed_extensions" in script
+    # and a refused file must not stay armed for sending
+    assert "state.file = refusal ? null : file" in script
+
+
 def test_the_serverless_build_still_enforces_consent(serverless_client):
     response = serverless_client.post(
         "/v1/jobs",

@@ -76,7 +76,16 @@
     if (!response.ok) {
       let body = {};
       try { body = await response.json(); } catch (_) { /* non-JSON error */ }
-      const error = new Error(body.detail || `Request failed (${response.status})`);
+      // A platform can reject a request before this service ever sees it —
+      // an upload over the host's body limit, for one — and those answers
+      // carry no error envelope. Say something true rather than a bare code.
+      const platform = {
+        413: 'The host rejected this upload as too large before it reached the service.',
+        502: 'The service did not answer. It may still be starting up.',
+        503: 'The service is not available in this deployment.',
+        504: 'The request took longer than this host allows.',
+      }[response.status];
+      const error = new Error(body.detail || platform || `Request failed (${response.status})`);
       error.fix = body.fix;
       throw error;
     }
@@ -115,13 +124,40 @@
   }
 
   // -------------------------------------------------------------- upload flow
+  function rejectReason(file) {
+    const limits = (state.capabilities && state.capabilities.limits) || null;
+    if (!limits) return null;
+
+    const extension = (file.name.split('.').pop() || '').toLowerCase();
+    if (limits.allowed_extensions && !limits.allowed_extensions.includes(extension)) {
+      return `${extension ? '.' + extension : 'That file type'} is not one this pipeline decodes. ` +
+             `Convert the recording to one of: ${limits.allowed_extensions.join(', ')}.`;
+    }
+
+    const megabytes = file.size / 1024 / 1024;
+    if (limits.max_upload_mb && megabytes > limits.max_upload_mb) {
+      return `This file is ${megabytes.toFixed(1)} MB and this deployment accepts up to ` +
+             `${limits.max_upload_mb} MB. Trim the recording, or run Vocalyze from its ` +
+             `Docker image, where the limit is the machine's rather than the host's.`;
+    }
+    return null;
+  }
+
   function chooseFile(file) {
     if (!file) return;
-    state.file = file;
+    // Check here rather than after the upload: a file the deployment cannot
+    // take should be refused with a reason while the person is still looking
+    // at it — not after a long upload that ends in a platform error this
+    // service never sees.
+    const refusal = rejectReason(file);
+    state.file = refusal ? null : file;
+
     el.dropTitle.innerHTML = `<span class="dropzone__file">${esc(file.name)}</span>`;
-    el.dropzone.querySelector('.dropzone__hint').textContent =
-      `${(file.size / 1024 / 1024).toFixed(1)} MB · ready to send`;
-    say('');
+    el.dropzone.querySelector('.dropzone__hint').textContent = refusal
+      ? `${(file.size / 1024 / 1024).toFixed(1)} MB · not accepted`
+      : `${(file.size / 1024 / 1024).toFixed(1)} MB · ready to send`;
+
+    say(refusal || '');
     refreshStart();
   }
 
