@@ -1,14 +1,33 @@
 # Vocalyze — integration and privacy layer
 
-[**Publish it live →**](#the-always-on-deployment)  ·  [Deploy guide](DEPLOY.md)  ·  [Delivery notes](DELIVERY.md)  ·  [Handover](docs/HANDOVER.md)
-
 Upload a meeting recording. Get back a speaker-attributed transcript and a
 brief in which **every point carries the line it came from**.
 
-This is the integration and privacy component of the Vocalyze project: the
-FastAPI backend, the upload flow, the interface, the layer that merges the ASR,
-diarization and LLM components into one system, and the privacy controls that
-govern all of it.
+### The three things to look at
+
+| | |
+|---|---|
+| **Live site** | **<https://vocalyze-ai.github.io/>** — transcribes in the browser; connects to a running service when given one |
+| **Notebook** | [`notebooks/Samsung_Campos_AI.ipynb`](notebooks/Samsung_Campos_AI.ipynb) — all five components, and a cell that runs the whole system on a public link |
+| **This repository** | the integration and privacy component: the backend, the interface, the merge, and the controls over all of it |
+
+Also here: [deploy guide](DEPLOY.md) · [delivery notes](DELIVERY.md) ·
+[handover](docs/HANDOVER.md) · [API](docs/API.md) · [privacy](docs/PRIVACY.md) ·
+[integration](docs/INTEGRATION.md)
+
+---
+
+## Where this fits
+
+Vocalyze is a five-component project. Speech recognition, speaker diarization,
+the dataset work and the summariser each belong to a teammate; **this** is the
+layer that turns them into one system — the FastAPI service, the upload flow,
+the interface, the merge that answers *who said what*, and the privacy controls
+governing all of it.
+
+The notebook runs every component in order. Its last section starts this
+service with the real models and hands you the published interface already
+connected to it, so the site and the pipeline are one system rather than two.
 
 ---
 

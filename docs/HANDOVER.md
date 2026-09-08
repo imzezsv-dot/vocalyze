@@ -196,7 +196,7 @@ Items 2–4 are report edits, not code. This component needs nothing further.
 | | |
 |---|---|
 | Repository | `github.com/imzezsv-dot/vocalyze` — the deliverable |
-| Notebook | `notebooks/Vocalyze.ipynb` — all four components, runnable top to bottom |
+| Notebook | `notebooks/Samsung_Campos_AI.ipynb` — all five components, runnable top to bottom |
 | Live demo | Notebook §5.2 prints a public URL, real Whisper, free GPU |
 | API contract | `docs/API.md`, and `/docs` on a running service |
 | Privacy statement | `docs/PRIVACY.md` — requirements, implementation, and limits |

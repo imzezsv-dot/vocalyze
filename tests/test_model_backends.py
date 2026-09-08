@@ -143,7 +143,7 @@ def test_the_notebook_never_pairs_real_speech_with_scripted_speakers():
     diarizer there would put invented speaker names on a real recording."""
     import json
 
-    notebook = json.loads((ROOT / "notebooks" / "Vocalyze.ipynb").read_text(encoding="utf-8"))
+    notebook = json.loads((ROOT / "notebooks" / "Samsung_Campos_AI.ipynb").read_text(encoding="utf-8"))
     for cell in notebook["cells"]:
         source = "".join(cell["source"])
         if 'ASR_BACKEND="whisper"' not in source and 'ASR_BACKEND"] = "whisper"' not in source:
