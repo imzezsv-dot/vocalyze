@@ -178,6 +178,64 @@ def test_the_verified_brief_matches_on_the_real_fixture():
         ], key
 
 
+# ------------------------------------------------------- Whisper's output
+BROWSER_ASR_JS = ROOT / "app" / "web" / "browser-asr.js"
+
+
+def run_browser_asr(body: str):
+    """browser-asr.js attaches to the global rather than exporting, so load it
+    the way the page does."""
+    script = f"""
+    globalThis.VocalyzePipeline = require({str(PIPELINE_JS)!r});
+    require({str(BROWSER_ASR_JS)!r});
+    const asr = globalThis.VocalyzeBrowserASR;
+    const result = (() => {{ {body} }})();
+    process.stdout.write(JSON.stringify(result));
+    """
+    completed = subprocess.run(
+        ["node", "-e", script], capture_output=True, text=True, timeout=60, check=False
+    )
+    if completed.returncode != 0:
+        raise AssertionError(f"node failed:\n{completed.stderr}")
+    return json.loads(completed.stdout)
+
+
+def test_a_chunk_with_no_end_timestamp_keeps_its_place_on_the_timeline():
+    """Whisper's last chunk regularly comes back with a null end timestamp.
+    Taking it literally collapses the final line to zero length, which drops it
+    out of the ribbon and off the end of the transcript."""
+    segments = run_browser_asr(
+        "return asr.toSegments({chunks: ["
+        "{timestamp: [0.0, 4.0], text: ' Alright, let us start.'},"
+        "{timestamp: [4.0, null], text: ' And that is the last thing said.'}"
+        "]}, 12.5);"
+    )
+    assert len(segments) == 2
+    assert segments[1]["start"] == 4.0
+    assert segments[1]["end"] == 12.5          # the clip's real duration, not 0
+    assert segments[1]["text"] == "And that is the last thing said."
+
+
+def test_output_with_no_chunks_still_yields_the_transcript():
+    """A short clip comes back as plain text with no chunking. Returning
+    nothing there would report "no speech found" for a clip that has speech."""
+    segments = run_browser_asr("return asr.toSegments({text: ' Just one line.'}, 3.0);")
+    assert segments == [{"start": 0, "end": 3.0, "text": "Just one line."}]
+
+    assert run_browser_asr("return asr.toSegments({text: '   '}, 3.0);") == []
+    assert run_browser_asr("return asr.toSegments({chunks: []}, 3.0);") == []
+
+
+def test_empty_chunks_are_dropped_rather_than_becoming_blank_lines():
+    segments = run_browser_asr(
+        "return asr.toSegments({chunks: ["
+        "{timestamp: [0.0, 1.0], text: '  '},"
+        "{timestamp: [1.0, 2.0], text: ' Real speech here.'}"
+        "]}, 2.0);"
+    )
+    assert [s["text"] for s in segments] == ["Real speech here."]
+
+
 def test_a_transcript_with_no_diarization_says_unknown_rather_than_guessing():
     """Calling a four-person meeting one speaker would be a fabrication, and
     this project is an argument against those."""
