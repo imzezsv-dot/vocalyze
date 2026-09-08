@@ -74,6 +74,49 @@
     }
   }
 
+  /* Aggregate download progress across files.
+   *
+   * Transformers.js reports progress per file, and a model is several: the
+   * weights, the tokenizer, a config each. Showing whichever event arrived
+   * last means the number climbs to 30, drops to 0 when the next file starts,
+   * then jumps somewhere else — it looks broken, and it tells the reader
+   * nothing about how long is left.
+   *
+   * So the files are summed. Bytes are reported exactly; the percentage is
+   * held monotonic, because the denominator grows as new files are discovered
+   * and a number that walks backwards is worse than one that pauses. It stops
+   * at 99 until the pipeline is actually ready, rather than sitting at 100
+   * through the seconds it takes to compile the model.
+   */
+  function downloadProgress(report) {
+    const files = new Map();
+    let highest = 0;
+
+    return (event) => {
+      if (!event || !event.file) return;
+
+      if (event.status === 'progress' && event.total) {
+        files.set(event.file, { loaded: event.loaded || 0, total: event.total });
+      } else if (event.status === 'done' && files.has(event.file)) {
+        const file = files.get(event.file);
+        files.set(event.file, { loaded: file.total, total: file.total });
+      } else {
+        return;
+      }
+
+      let loaded = 0;
+      let total = 0;
+      for (const file of files.values()) {
+        loaded += file.loaded;
+        total += file.total;
+      }
+      if (!total) return;
+
+      highest = Math.max(highest, Math.min(99, Math.round((loaded / total) * 100)));
+      report(highest, loaded / 1048576, total / 1048576);
+    };
+  }
+
   async function loadASR(size, onProgress) {
     const name = MODELS[size] || MODELS.base;
     if (state.asr && state.asrModel === name) return state.asr;
@@ -196,11 +239,12 @@
     stage('normalizing', 'done', `${duration.toFixed(0)}s, decoded to 16000 Hz mono`);
 
     stage('transcribing', 'running', 'loading the model');
-    const asr = await loadASR(settings.model, (progress) => {
-      if (progress && progress.status === 'progress' && progress.progress) {
-        stage('transcribing', 'running', `downloading the model — ${Math.round(progress.progress)}%`);
-      }
-    });
+    const asr = await loadASR(settings.model, downloadProgress((percent, mb, totalMb) => {
+      stage(
+        'transcribing', 'running',
+        `downloading the model — ${percent}% (${mb.toFixed(1)} MB of ${totalMb.toFixed(1)} MB)`,
+      );
+    }));
     stage('transcribing', 'running', `Whisper ${settings.model} on ${state.device}`);
 
     const output = await asr(audio, {
@@ -215,7 +259,12 @@
     stage('diarizing', 'running');
     let turns = null;
     if (settings.speakers) {
-      turns = await diarize(audio, () => stage('diarizing', 'running', 'loading the model'));
+      turns = await diarize(audio, downloadProgress((percent, mb, totalMb) => {
+        stage(
+          'diarizing', 'running',
+          `downloading the speaker model — ${percent}% (${mb.toFixed(1)} MB of ${totalMb.toFixed(1)} MB)`,
+        );
+      }));
     }
     if (turns) {
       const count = new Set(turns.map((t) => t.speaker)).size;
