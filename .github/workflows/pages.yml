@@ -57,11 +57,28 @@ jobs:
           test -d site/fonts/woff2
           echo "site/ contains $(find site -type f | wc -l) files"
 
+      # `enablement: true` is deliberately not set: creating a Pages site is
+      # owner-only, GITHUB_TOKEN cannot do it, and the attempt fails with
+      # "Resource not accessible by integration" — which says nothing about
+      # what to actually do.
       - uses: actions/configure-pages@v5
-        with:
-          # Turns Pages on for this repository if it is not already, so this
-          # works without anyone visiting the settings page first.
-          enablement: true
+        id: pages
+        continue-on-error: true
+
+      - name: Pages has to be switched on once
+        if: steps.pages.outcome == 'failure'
+        run: |
+          {
+            echo "## One setting, once"
+            echo
+            echo "Open **[Settings → Pages](https://github.com/${{ github.repository }}/settings/pages)**"
+            echo "and set **Source** to **GitHub Actions**."
+            echo
+            echo "Then re-run this workflow. Nothing else is needed — the build"
+            echo "itself already succeeded."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::GitHub Pages is not enabled for this repository. Open Settings -> Pages, set Source to 'GitHub Actions', then re-run. Only the repository owner can do this; the workflow token cannot."
+          exit 1
 
       - uses: actions/upload-pages-artifact@v3
         with:
