@@ -84,6 +84,65 @@ jobs:
         with:
           path: site
 
+      # ------------------------------------------------------------------
+      # The public site lives in another organisation's repository, and
+      # GITHUB_TOKEN is scoped to this one — so publishing there needs a token
+      # of its own. Without it the build still succeeds and this step says what
+      # is missing, rather than failing the run over an optional target.
+      # ------------------------------------------------------------------
+      - name: Publish to the public site
+        id: mirror
+        if: env.SITE_TOKEN != ''
+        env:
+          SITE_TOKEN: ${{ secrets.SITE_DEPLOY_TOKEN }}
+          SITE_REPO: vocalyze-ai/vocalyze-ai.github.io
+        run: |
+          set -euo pipefail
+          git clone --depth 1 \
+            "https://x-access-token:${SITE_TOKEN}@github.com/${SITE_REPO}.git" /tmp/site-repo
+
+          # Replace the contents rather than merging into them, so a file
+          # deleted here disappears there too instead of lingering forever.
+          find /tmp/site-repo -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R site/. /tmp/site-repo/
+
+          cd /tmp/site-repo
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The public site already matches this build."
+            exit 0
+          fi
+          git commit -q -m "Vocalyze site"
+          git push -q
+          echo "Published to https://vocalyze-ai.github.io/"
+
+      - name: How to switch the public site on
+        if: env.SITE_TOKEN == ''
+        env:
+          SITE_TOKEN: ${{ secrets.SITE_DEPLOY_TOKEN }}
+        run: |
+          {
+            echo "### The public site was not updated"
+            echo
+            echo "\`SITE_DEPLOY_TOKEN\` is not set, so **vocalyze-ai.github.io**"
+            echo "still holds whatever was last put there by hand."
+            echo
+            echo "To make it automatic, once:"
+            echo
+            echo "1. Create a **fine-grained token**:"
+            echo "   <https://github.com/settings/personal-access-tokens/new>"
+            echo "   - Resource owner: \`vocalyze-ai\`"
+            echo "   - Repository access: only \`vocalyze-ai.github.io\`"
+            echo "   - Permissions: **Contents → Read and write**"
+            echo "2. Add it here as a secret named \`SITE_DEPLOY_TOKEN\`:"
+            echo "   <https://github.com/${{ github.repository }}/settings/secrets/actions/new>"
+            echo
+            echo "Every push to \`main\` publishes both sites after that."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning::SITE_DEPLOY_TOKEN is not set — vocalyze-ai.github.io was not updated. See the run summary for the one-time setup."
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
