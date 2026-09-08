@@ -12,7 +12,7 @@ from typing import Annotated
 
 from fastapi import Depends, Header, Query, Request
 
-from .config import Settings
+from .config import Settings, get_settings
 from .core.audit import AuditLog
 from .core.errors import JobNotFound, JobPurged, NotAuthorized
 from .core.store import JobRecord, JobStore
@@ -29,8 +29,54 @@ class Services:
     orchestrator: "object" = None  # only used in synchronous_jobs mode
 
 
+def build_services(app, *, start_background: bool = True) -> Services:
+    """Assemble the service container and attach it to the app.
+
+    Called from the lifespan handler, and again lazily by `get_services` if
+    that never ran.
+    """
+    # Imported here rather than at module scope: worker and orchestrator both
+    # reach back into this package, and the lazy path is not on the hot path.
+    from .core.crypto import Sealer
+    from .core.logging import setup_logging
+    from .core.retention import RetentionSweeper
+    from .pipeline.orchestrator import Orchestrator
+    from .worker import JobQueue
+
+    settings = get_settings()
+    setup_logging()
+    settings.ensure_dirs()
+
+    sealer = Sealer.from_settings(settings.encryption_key, settings.encrypt_at_rest)
+    store = JobStore(settings, sealer)
+    audit = AuditLog(settings.audit_path, settings.audit_log_enabled)
+    orchestrator = Orchestrator(settings, store, audit)
+
+    services = Services(
+        settings=settings,
+        store=store,
+        audit=audit,
+        queue=JobQueue(orchestrator, settings.worker_concurrency),
+        sweeper=RetentionSweeper(store, audit, settings.retention_sweep_seconds),
+        orchestrator=orchestrator,
+    )
+
+    if start_background and not settings.synchronous_jobs:
+        services.queue.start()
+        services.sweeper.start()
+
+    app.state.services = services
+    return services
+
+
 def get_services(request: Request) -> Services:
-    return request.app.state.services
+    services = getattr(request.app.state, "services", None)
+    if services is None:
+        # Not every ASGI host emits lifespan events — Vercel's Python runtime
+        # does not — so startup may never have run. Building on first use
+        # beats answering 500 to every request on those hosts.
+        services = build_services(request.app)
+    return services
 
 
 ServicesDep = Annotated[Services, Depends(get_services)]

@@ -112,6 +112,52 @@ def test_the_upload_returns_the_finished_result_in_one_round_trip(serverless_cli
     assert result["privacy"]["retention_hours"] == 24
 
 
+def test_the_api_works_on_a_host_that_never_runs_lifespan(tmp_path, monkeypatch):
+    """Vercel's Python runtime does not emit ASGI lifespan events, so startup
+    never runs there and `app.state.services` is never set. Every /v1/ route
+    then died with AttributeError and the interface reported the API as
+    unreachable — while the static page, served from the CDN, looked fine.
+
+    A TestClient used without its context manager reproduces exactly that.
+    """
+    import importlib
+
+    from fastapi.testclient import TestClient
+
+    from app.core.crypto import generate_service_key
+
+    monkeypatch.setenv("SYNCHRONOUS_JOBS", "true")
+    monkeypatch.setenv("DEMO_MODE_LITE", "true")
+    monkeypatch.setenv("AUDIT_LOG_ENABLED", "false")
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "no-lifespan"))
+    monkeypatch.setenv("ENCRYPTION_KEY", generate_service_key())
+
+    import app.config as config
+
+    config.get_settings.cache_clear()
+    import app.main as main
+
+    importlib.reload(main)
+
+    client = TestClient(main.app)          # deliberately not `with` — no startup
+    assert not hasattr(main.app.state, "services")
+
+    assert client.get("/v1/health").json()["status"] == "ok"
+    assert client.get("/v1/capabilities").json()["demo_mode"] is True
+    assert client.get("/v1/privacy/policy").status_code == 200
+
+    # and a full upload still completes on that host
+    accepted = client.post(
+        "/v1/jobs",
+        files={"file": ("meeting.mp4", b"RIFF$\x00\x00\x00WAVEfmt ", "video/mp4")},
+        data={"consent": "true"},
+    ).json()
+    assert accepted["state"] == "completed"
+    assert accepted["result"]["transcript"]["utterances"]
+
+    config.get_settings.cache_clear()
+
+
 def test_the_serverless_build_declares_that_it_keeps_nothing(serverless_client):
     """On a serverless host the container's storage goes with the request, so
     a later call cannot reach the job — as `test_a_second_invocation_cannot_see

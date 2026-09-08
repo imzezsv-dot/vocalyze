@@ -28,15 +28,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .api import jobs, privacy, system
 from .config import get_settings
-from .core.audit import AuditLog
-from .core.crypto import Sealer
-from .core.logging import get_logger, setup_logging
-from .core.retention import RetentionSweeper
-from .core.store import JobStore
-from .deps import Services
+from .core.logging import get_logger
+from .deps import build_services
 from .pipeline import registry
-from .pipeline.orchestrator import Orchestrator
-from .worker import JobQueue
 
 log = get_logger("vocalyze")
 
@@ -44,24 +38,8 @@ log = get_logger("vocalyze")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    setup_logging()
-    settings.ensure_dirs()
-
-    sealer = Sealer.from_settings(settings.encryption_key, settings.encrypt_at_rest)
-    store = JobStore(settings, sealer)
-    audit = AuditLog(settings.audit_path, settings.audit_log_enabled)
-    orchestrator = Orchestrator(settings, store, audit)
-    queue = JobQueue(orchestrator, settings.worker_concurrency)
-    sweeper = RetentionSweeper(store, audit, settings.retention_sweep_seconds)
-
-    app.state.services = Services(
-        settings=settings, store=store, audit=audit, queue=queue, sweeper=sweeper,
-        orchestrator=orchestrator,
-    )
-
-    if not settings.synchronous_jobs:
-        queue.start()
-        sweeper.start()
+    services = build_services(app)
+    audit = services.audit
     registry.preload()
     audit.record("service.started", version=settings.version, asr=settings.asr_backend)
     log.info(
@@ -77,8 +55,8 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         if not settings.synchronous_jobs:
-            await queue.stop()
-            await sweeper.stop()
+            await services.queue.stop()
+            await services.sweeper.stop()
         audit.record("service.stopped")
 
 

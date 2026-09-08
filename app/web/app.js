@@ -104,7 +104,11 @@
         `Everything is erased after ${privacy.retention_hours} hours, or now, if you press delete.` +
         (privacy.allow_external_llm ? ' The summariser may call an external model.' : ' Nothing leaves this machine.');
       return capabilities;
-    } catch (_) {
+    } catch (error) {
+      // Say why in the console. "No API is reachable" covers a network error
+      // and a server that answered 500 identically, and those need different
+      // fixes — whoever is debugging the deployment should not have to guess.
+      console.error('[vocalyze] /v1/capabilities failed:', error.message);
       setMode('offline', 'offline · sample');
       return null;
     }
