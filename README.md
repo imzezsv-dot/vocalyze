@@ -139,7 +139,7 @@ api/index.py                serverless entry point for the Vercel deployment
 pytest
 ```
 
-97 tests, about two seconds, no network and no model weights — they run
+101 tests, about two seconds, no network and no model weights — they run
 against the scripted backends, so the answer is the same on a laptop and in
 CI.
 

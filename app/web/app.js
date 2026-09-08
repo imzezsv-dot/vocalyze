@@ -31,7 +31,13 @@
     deleteBtn: $('delete-job'),
   };
 
-  const state = { file: null, job: null, token: null, result: null, capabilities: null, live: false };
+  /* `persistent` is false on a serverless deployment: the pipeline runs inline
+     and the container's storage goes with the request, so the job cannot be
+     read back afterwards. Export and delete key off it rather than off `live`. */
+  const state = {
+    file: null, job: null, token: null, result: null,
+    capabilities: null, live: false, persistent: true,
+  };
 
   // ---------------------------------------------------------------- helpers
   /* Everything rendered through innerHTML below passes through esc() first.
@@ -84,6 +90,7 @@
       const capabilities = await api('/v1/capabilities');
       state.capabilities = capabilities;
       state.live = true;
+      state.persistent = capabilities.persistent_jobs !== false;
       if (capabilities.demo_mode) {
         setMode('demo', 'sample models');
         el.badge.title = 'The API is running, but with scripted models. Set ASR_BACKEND=whisper for real transcription.';
@@ -229,7 +236,9 @@
     const speakers = transcript.speakers;
 
     el.results.hidden = false;
-    el.deleteBtn.hidden = !(state.live && state.job);
+    // Nothing to delete when the deployment kept nothing: the request that
+    // produced this result took its storage with it.
+    el.deleteBtn.hidden = !(state.live && state.job && state.persistent);
 
     renderRibbon(transcript, speakers);
     renderBrief(brief, quality);
@@ -359,8 +368,12 @@
       [true, `Recognition: ${models.asr ? models.asr.backend + ' · ' + models.asr.model : 'not recorded'}. ` +
              `Diarization: ${models.diarization ? models.diarization.backend : 'not recorded'}. ` +
              `Brief: ${models.summarizer ? models.summarizer.backend : 'not recorded'}.`],
-      [true, `Everything for this recording is erased after ${Number(privacy.retention_hours) || 24} hours, ` +
-             `or the moment you press delete.`],
+      state.persistent
+        ? [true, `Everything for this recording is erased after ${Number(privacy.retention_hours) || 24} hours, ` +
+                 `or the moment you press delete.`]
+        : [true, 'This deployment stores nothing between requests: the recording was processed in one ' +
+                 'request and that container\'s storage went with it. Your downloads are built here in ' +
+                 'the browser, from the result already on this page.'],
     ];
     el.receipts.innerHTML = rows.map(([ok, text]) =>
       `<li><span class="${ok ? 'tick' : 'cross'}">${ok ? '✓' : '!'}</span><span>${esc(text)}</span></li>`).join('');
@@ -382,7 +395,8 @@
   });
 
   function exportAs(format) {
-    if (state.live && state.job) {
+    // Ask the API only when the job is still there to be asked about.
+    if (state.live && state.job && state.persistent) {
       const url = `${API}/v1/jobs/${state.job}/transcript.${format}?token=${encodeURIComponent(state.token)}`;
       window.open(url, '_blank', 'noopener');
       return;

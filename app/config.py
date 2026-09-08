@@ -146,6 +146,11 @@ class Settings:
             "diarization_backend": self.diarization_backend,
             "summarizer_backend": self.summarizer_backend,
             "demo_mode": {self.asr_backend, self.diarization_backend, self.summarizer_backend} == {"mock"},
+            # False on a serverless host: the pipeline runs inline and the
+            # container's storage goes with the request, so a later call
+            # cannot reach the job. The interface reads this and exports from
+            # the result it already holds instead of asking for it again.
+            "persistent_jobs": not self.synchronous_jobs,
             "privacy": {
                 "require_consent": self.require_consent,
                 "encrypt_at_rest": self.encrypt_at_rest,

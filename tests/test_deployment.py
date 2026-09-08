@@ -112,6 +112,74 @@ def test_the_upload_returns_the_finished_result_in_one_round_trip(serverless_cli
     assert result["privacy"]["retention_hours"] == 24
 
 
+def test_the_serverless_build_declares_that_it_keeps_nothing(serverless_client):
+    """On a serverless host the container's storage goes with the request, so
+    a later call cannot reach the job — as `test_a_second_invocation_cannot_see
+    _the_first_ones_job` below demonstrates. The interface has to be told, or
+    its export and delete buttons call an endpoint that answers 404."""
+    capabilities = serverless_client.get("/v1/capabilities").json()
+    assert capabilities["persistent_jobs"] is False
+
+
+def test_the_normal_build_declares_that_it_does_keep_jobs(client):
+    assert client.get("/v1/capabilities").json()["persistent_jobs"] is True
+
+
+def test_a_second_invocation_cannot_see_the_first_ones_job(tmp_path, monkeypatch):
+    """Each serverless request is a fresh container with an empty data
+    directory. This is the reason the interface must not offer a server-side
+    export or a delete button on that deployment."""
+    import importlib
+
+    from fastapi.testclient import TestClient
+
+    from app.core.crypto import generate_service_key
+
+    def invocation(name):
+        monkeypatch.setenv("SYNCHRONOUS_JOBS", "true")
+        monkeypatch.setenv("DEMO_MODE_LITE", "true")
+        monkeypatch.setenv("AUDIT_LOG_ENABLED", "false")
+        monkeypatch.setenv("DATA_DIR", str(tmp_path / name))
+        monkeypatch.setenv("ENCRYPTION_KEY", generate_service_key())
+
+        import app.config as config
+
+        config.get_settings.cache_clear()
+        import app.main as main
+
+        importlib.reload(main)
+        return TestClient(main.app)
+
+    with invocation("first") as first:
+        accepted = first.post(
+            "/v1/jobs",
+            files={"file": ("meeting.wav", b"RIFF$\x00\x00\x00WAVEfmt ", "audio/wav")},
+            data={"consent": "true"},
+        ).json()
+
+    # the whole result came back in that one response — nothing is lost
+    assert accepted["result"]["transcript"]["utterances"]
+
+    headers = {"Authorization": f"Bearer {accepted['access_token']}"}
+    with invocation("second") as second:
+        assert second.get(f"/v1/jobs/{accepted['job_id']}/transcript.md", headers=headers).status_code == 404
+        assert second.delete(f"/v1/jobs/{accepted['job_id']}", headers=headers).status_code == 404
+
+    import app.config as config
+
+    config.get_settings.cache_clear()
+
+
+def test_the_interface_keys_export_and_delete_off_persistence():
+    """The guard has to be on `persistent`, not on `live` — a serverless build
+    is live and still cannot answer for a job after the response."""
+    script = (ROOT / "app" / "web" / "app.js").read_text(encoding="utf-8")
+
+    assert "state.persistent = capabilities.persistent_jobs !== false" in script
+    assert "state.live && state.job && state.persistent" in script
+    assert "if (state.live && state.job) {" not in script
+
+
 def test_the_serverless_build_still_enforces_consent(serverless_client):
     response = serverless_client.post(
         "/v1/jobs",
