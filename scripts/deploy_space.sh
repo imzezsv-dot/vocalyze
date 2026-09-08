@@ -20,21 +20,35 @@ step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 warn() { printf '\033[33m    %s\033[0m\n' "$1"; }
 
 # --------------------------------------------------------------- the CLI
-if ! command -v hf >/dev/null 2>&1; then
-  step "Installing the Hugging Face CLI"
-  pip install -q --upgrade "huggingface_hub[cli]"
+# Everything goes in a virtualenv beside the repository: `pip` is not on the
+# PATH of a stock macOS Python, and a Homebrew one refuses to install into
+# itself anyway. Nothing here touches the system Python.
+PYTHON="$(command -v python3 || command -v python || true)"
+if [ -z "$PYTHON" ]; then
+  echo "Python 3 is required. Install it from https://www.python.org/downloads/" >&2
+  exit 1
 fi
 
+if [ ! -x .venv/bin/hf ]; then
+  step "Installing the Hugging Face CLI (in ./.venv, nothing system-wide)"
+  [ -d .venv ] || "$PYTHON" -m venv .venv
+  ./.venv/bin/python -m pip install -q --upgrade pip
+  ./.venv/bin/python -m pip install -q --upgrade "huggingface_hub>=0.34" cryptography
+fi
+
+PY="$PWD/.venv/bin/python"
+HF="$PWD/.venv/bin/hf"
+
 # ------------------------------------------------------------- signing in
-if ! hf auth whoami >/dev/null 2>&1; then
+if ! "$HF" auth whoami >/dev/null 2>&1; then
   step "Sign in to Hugging Face"
   echo "    A browser will open, or paste a WRITE token from:"
   echo "    https://huggingface.co/settings/tokens"
-  hf auth login --add-to-git-credential
+  "$HF" auth login --add-to-git-credential
 fi
 
-USERNAME="$(python3 -c 'from huggingface_hub import whoami; print(whoami()["name"])')"
-TOKEN="$(python3 -c 'from huggingface_hub import get_token; print(get_token() or "")')"
+USERNAME="$("$PY" -c 'from huggingface_hub import whoami; print(whoami()["name"])')"
+TOKEN="$("$PY" -c 'from huggingface_hub import get_token; print(get_token() or "")')"
 
 if [ -z "$USERNAME" ] || [ -z "$TOKEN" ]; then
   echo "Could not read the signed-in account. Run 'hf auth login' and try again." >&2
@@ -45,7 +59,7 @@ echo "    Signed in as: $USERNAME"
 # ------------------------------------------------- is pyannote usable yet?
 step "Checking access to the pyannote models"
 DIARIZATION="pyannote"
-if ! python3 - "$TOKEN" <<'PY'
+if ! "$PY" - "$TOKEN" <<'PY'
 import sys
 from huggingface_hub import model_info
 
@@ -65,11 +79,11 @@ else
 fi
 
 # ------------------------------------------------------ creating the Space
-ENCRYPTION_KEY="$(python3 -m app.core.crypto)"
+ENCRYPTION_KEY="$("$PY" -m app.core.crypto)"
 REPO_ID="$USERNAME/$SPACE_NAME"
 
 step "Creating the Space $REPO_ID"
-hf repos create "$REPO_ID" \
+"$HF" repos create "$REPO_ID" \
   --type space --sdk docker --public --exist-ok \
   --secrets "ENCRYPTION_KEY=$ENCRYPTION_KEY" \
   --secrets "HUGGINGFACE_TOKEN=$TOKEN" \
@@ -79,27 +93,24 @@ hf repos create "$REPO_ID" \
   --env "WHISPER_MODEL=small" \
   --env "MAX_UPLOAD_MB=200"
 
-# ------------------------------------------------------------- pushing it
-# A Space reads its configuration from the YAML front matter of README.md —
-# it never looks at README_HF.md. So the commit pushed to the Space carries
-# README_HF.md as its README.md, and the repository keeps its own untouched.
-step "Pushing the code to the Space"
-BRANCH="hf-deploy-$$"
-git switch -c "$BRANCH" >/dev/null 2>&1
+# ----------------------------------------------------------- uploading it
+# Uploaded rather than pushed: this touches no git remote, no branch and no
+# credential helper, so a repository checked out from anywhere — under any
+# GitHub account — is left exactly as it was found.
+step "Uploading the code to the Space"
+"$HF" upload "$REPO_ID" . . --type space \
+  --exclude ".git/*" \
+  --exclude ".venv/*" \
+  --exclude "var/*" \
+  --exclude "**/__pycache__/*" \
+  --exclude "*.pyc" \
+  --commit-message "Vocalyze — integration and privacy layer"
 
-cp README_HF.md README.md
-git add README.md
-git -c user.name="deploy" -c user.email="deploy@localhost" \
-    commit -q -m "Space front matter" || true
-
-git remote remove hf >/dev/null 2>&1 || true
-git remote add hf "https://huggingface.co/spaces/$REPO_ID"
-git push --force hf "$BRANCH:main"
-
-# put the repository back exactly as it was
-git switch - >/dev/null 2>&1
-git branch -D "$BRANCH" >/dev/null 2>&1
-git remote remove hf >/dev/null 2>&1 || true
+# A Space reads its configuration from the YAML front matter of README.md and
+# never looks at README_HF.md. Without this step the Space does not know it is
+# a Docker build on port 7860, and never starts.
+"$HF" upload "$REPO_ID" README_HF.md README.md --type space \
+  --commit-message "Space configuration"
 
 # ------------------------------------------------------------------ done
 cat <<EOF
