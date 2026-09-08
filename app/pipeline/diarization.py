@@ -37,6 +37,27 @@ def _annotation_of(output):
 
 
 # ---------------------------------------------------------------------------
+class NoDiarizer:
+    """No speaker separation at all — every line comes back unattributed.
+
+    The honest setting for a build that transcribes real audio without a
+    diarization model. The alternative in that situation is `mock`, which
+    replays the scripted meeting's turns: applied to somebody's own recording
+    those become confident speaker labels invented from a fixture, which is
+    the exact failure this system exists to argue against. Better to say
+    nothing about who spoke than to make it up.
+    """
+
+    name = "none"
+
+    def __init__(self, settings: Settings | None = None):
+        self.settings = settings
+
+    def diarize(self, audio_path: Path, num_speakers: int | None = None) -> DiarizationResult:
+        return DiarizationResult(turns=[], num_speakers=0, model="none", backend=self.name)
+
+
+# ---------------------------------------------------------------------------
 class MockDiarizer:
     """Turns from the scripted meeting, with boundary jitter and one genuine
     overlap, so the aligner is exercised rather than handed a clean answer."""

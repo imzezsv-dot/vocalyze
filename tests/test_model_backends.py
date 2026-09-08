@@ -13,6 +13,8 @@ from pathlib import Path
 
 import pytest
 
+ROOT = Path(__file__).resolve().parent.parent
+
 from app.config import Settings
 from app.pipeline.diarization import PyannoteDiarizer, _annotation_of
 
@@ -85,6 +87,73 @@ def test_a_missing_token_says_what_to_do_about_it(monkeypatch):
     pytest.importorskip("pyannote.audio", reason="the token check runs after the import check")
     with pytest.raises(RuntimeError, match="Hugging Face token"):
         diarizer._load()
+
+
+def test_the_scripted_diarizer_returns_the_fixture_whatever_the_audio():
+    """Why a real transcription must never be paired with it: the turns come
+    from the scripted meeting, so over somebody's own recording they become
+    confident speaker names invented from a fixture."""
+    from app.pipeline.diarization import MockDiarizer
+
+    first = MockDiarizer().diarize(Path("/some/recording.wav"))
+    second = MockDiarizer().diarize(Path("/a/completely/different.wav"))
+
+    assert [(t.start, t.speaker) for t in first.turns] == [(t.start, t.speaker) for t in second.turns]
+    assert first.turns, "the fixture does carry turns — that is the hazard"
+
+
+def test_no_diarization_says_nothing_rather_than_inventing_speakers():
+    """The setting for real audio with no speaker model. Every line ends up
+    UNKNOWN, which is true, instead of carrying a fixture's label."""
+    from app.pipeline.diarization import NoDiarizer
+
+    result = NoDiarizer().diarize(Path("/some/recording.wav"))
+    assert result.turns == []
+    assert result.num_speakers == 0
+    assert result.backend == "none"
+
+
+def test_real_speech_with_no_diarizer_comes_back_unattributed():
+    """End to end through the aligner: words are kept, speakers are not guessed."""
+    from app.pipeline.alignment import build_transcript
+    from app.pipeline.diarization import NoDiarizer
+    from app.schemas import ASRResult, ASRSegment, Word
+
+    asr = ASRResult(
+        language="en", duration=2.4,
+        segments=[ASRSegment(
+            start=0.0, end=2.4, text="Right, let's start.", confidence=0.8,
+            words=[Word(start=0.0, end=0.8, text="Right,", confidence=0.9),
+                   Word(start=0.8, end=2.4, text="let's start.", confidence=0.9)],
+        )],
+        model="small", backend="faster-whisper",
+    )
+
+    transcript, _stats = build_transcript(asr, NoDiarizer().diarize(Path("/dev/null")))
+
+    # UNKNOWN is listed so the interface can render an "Unidentified" group.
+    # What matters is that no real speaker was invented alongside it.
+    assert transcript.speakers == ["UNKNOWN"]
+    assert {u.speaker for u in transcript.utterances} == {"UNKNOWN"}
+    assert " ".join(u.text for u in transcript.utterances) == "Right, let's start."
+
+
+def test_the_notebook_never_pairs_real_speech_with_scripted_speakers():
+    """The demo cells transcribe real audio. Falling back to the scripted
+    diarizer there would put invented speaker names on a real recording."""
+    import json
+
+    notebook = json.loads((ROOT / "notebooks" / "Vocalyze.ipynb").read_text(encoding="utf-8"))
+    for cell in notebook["cells"]:
+        source = "".join(cell["source"])
+        if 'ASR_BACKEND="whisper"' not in source and 'ASR_BACKEND"] = "whisper"' not in source:
+            continue
+        assert 'DIARIZATION_BACKEND"] = "mock"' not in source, (
+            "a cell running real Whisper falls back to the scripted diarizer"
+        )
+        assert 'DIARIZATION_BACKEND="mock"' not in source, (
+            "a cell running real Whisper falls back to the scripted diarizer"
+        )
 
 
 def test_a_diarizer_that_fails_costs_labels_but_not_the_meeting(client):

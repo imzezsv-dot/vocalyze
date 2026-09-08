@@ -13,13 +13,13 @@ from functools import lru_cache
 from ..config import Settings, get_settings
 from ..core.logging import get_logger
 from .asr import ASRBackend, MockASR, WhisperASR
-from .diarization import DiarizationBackend, MockDiarizer, PyannoteDiarizer
+from .diarization import DiarizationBackend, MockDiarizer, NoDiarizer, PyannoteDiarizer
 from .summarizer import ExtractiveSummarizer, LLMSummarizer, SummarizerBackend
 
 log = get_logger("vocalyze.registry")
 
 _ASR = {"mock": MockASR, "whisper": WhisperASR}
-_DIARIZATION = {"mock": MockDiarizer, "pyannote": PyannoteDiarizer}
+_DIARIZATION = {"mock": MockDiarizer, "none": NoDiarizer, "pyannote": PyannoteDiarizer}
 _SUMMARIZER = {"mock": ExtractiveSummarizer, "extractive": ExtractiveSummarizer, "llm": LLMSummarizer}
 
 
