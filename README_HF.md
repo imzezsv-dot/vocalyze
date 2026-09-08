@@ -19,5 +19,5 @@ in which every point cites the line it came from.
 - **Real models:** set `ASR_BACKEND=whisper`, `DIARIZATION_BACKEND=pyannote`,
   `SUMMARIZER_BACKEND=llm` in the Space's secrets (and add `HUGGINGFACE_TOKEN`
   after accepting the pyannote licence).
-- Full docs are inside the repo: `docs/README.md`, `docs/API.md`,
+- Full docs are inside the repo: `README.md`, `docs/API.md`,
   `docs/PRIVACY.md`, `docs/INTEGRATION.md`.

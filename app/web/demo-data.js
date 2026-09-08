@@ -6,12 +6,12 @@ window.VOCALYZE_DEMO = {
   "state": "completed",
   "filename": "team-standup.m4a",
   "size_bytes": 8412160,
-  "duration_seconds": 112.5,
+  "duration_seconds": 112.54,
   "progress": 1.0
  },
  "transcript": {
   "language": "en",
-  "duration": 112.5,
+  "duration": 112.54,
   "speakers": [
    "SPEAKER_00",
    "SPEAKER_01",
@@ -20,159 +20,183 @@ window.VOCALYZE_DEMO = {
   ],
   "utterances": [
    {
+    "id": "u1",
     "speaker": "SPEAKER_00",
     "start": 1.2,
     "end": 4.195,
     "text": "Alright, let's start with where the dataset stands.",
-    "confidence": 0.87675,
+    "confidence": 0.877,
     "speaker_confidence": 1.0,
     "overlapped": false,
-    "id": "u1"
+    "redacted": false
    },
    {
+    "id": "u2",
     "speaker": "SPEAKER_01",
     "start": 4.673,
     "end": 22.177,
     "text": "AMI and ICSI are both downloaded and cleaned. We are at ninety hours after removing the corrupted sessions. Everything is resampled to sixteen kilohertz mono, and the split is speaker disjoint, so no speaker appears in both train and test.",
-    "confidence": 0.908825,
+    "confidence": 0.909,
     "speaker_confidence": 0.987,
     "overlapped": false,
-    "id": "u2"
+    "redacted": false
    },
    {
+    "id": "u3",
     "speaker": "SPEAKER_00",
     "start": 22.657,
     "end": 25.456,
     "text": "Good. Any sessions we had to throw away?",
-    "confidence": 0.89825,
+    "confidence": 0.898,
     "speaker_confidence": 0.898,
     "overlapped": false,
-    "id": "u3"
+    "redacted": false
    },
    {
+    "id": "u4",
     "speaker": "SPEAKER_01",
     "start": 25.942,
     "end": 30.957,
     "text": "Four ICSI sessions had broken timestamps. They are documented in the dataset card.",
-    "confidence": 0.8868461538461538,
+    "confidence": 0.887,
     "speaker_confidence": 0.997,
     "overlapped": false,
-    "id": "u4"
+    "redacted": false
    },
    {
+    "id": "u5",
     "speaker": "SPEAKER_02",
     "start": 31.442,
     "end": 48.509,
     "text": "On the recognition side, Whisper large is running on the clean split. Word error rate is eleven point two percent, down from eighteen point four on the raw audio. Most of the remaining errors are crosstalk, where two people speak at once.",
-    "confidence": 0.9118095238095238,
+    "confidence": 0.912,
     "speaker_confidence": 1.0,
     "overlapped": false,
-    "id": "u5"
+    "redacted": false
    },
    {
+    "id": "u6",
     "speaker": "SPEAKER_03",
     "start": 48.984,
     "end": 57.106,
     "text": "Diarization has the same problem. Speaker error rate is around nine percent, and almost all of it is in the overlap regions.",
-    "confidence": 0.9145454545454546,
+    "confidence": 0.915,
     "speaker_confidence": 0.979,
     "overlapped": false,
-    "id": "u6"
+    "redacted": false
    },
    {
+    "id": "u7",
     "speaker": "SPEAKER_00",
     "start": 57.587,
     "end": 64.833,
     "text": "So both models fail in the same place. Can we handle overlap once, in the merge step, instead of twice?",
-    "confidence": 0.9177500000000001,
+    "confidence": 0.918,
     "speaker_confidence": 1.0,
     "overlapped": false,
-    "id": "u7"
+    "redacted": false
    },
    {
+    "id": "u8",
     "speaker": "SPEAKER_03",
     "start": 65.318,
     "end": 73.628,
     "text": "That is what I would suggest. Flag the overlapped spans and let the interface show them as uncertain rather than guessing a speaker.",
-    "confidence": 0.914608695652174,
+    "confidence": 0.915,
     "speaker_confidence": 1.0,
     "overlapped": false,
-    "id": "u8"
+    "redacted": false
    },
    {
+    "id": "u9",
     "speaker": "SPEAKER_02",
     "start": 74.111,
     "end": 76.42,
     "text": "Right, uncertain is better than confidently wrong.",
-    "confidence": 0.9055714285714285,
+    "confidence": 0.906,
     "speaker_confidence": 1.0,
     "overlapped": true,
-    "id": "u9"
+    "redacted": false
    },
    {
+    "id": "u10",
     "speaker": "SPEAKER_00",
     "start": 76.894,
     "end": 81.954,
     "text": "Agreed. We flag overlap in the interface instead of forcing a single speaker.",
-    "confidence": 0.8839999999999999,
+    "confidence": 0.884,
     "speaker_confidence": 0.977,
     "overlapped": false,
-    "id": "u10"
+    "redacted": false
    },
    {
+    "id": "u11",
     "speaker": "SPEAKER_02",
     "start": 82.438,
     "end": 87.657,
     "text": "For the summary, we should require the model to quote the line it took each point from.",
-    "confidence": 0.912235294117647,
+    "confidence": 0.912,
     "speaker_confidence": 1.0,
     "overlapped": false,
-    "id": "u11"
+    "redacted": false
    },
    {
+    "id": "u12",
     "speaker": "SPEAKER_01",
     "start": 88.133,
     "end": 93.313,
     "text": "That also gives us a check. If the quoted line does not exist, we drop the point.",
-    "confidence": 0.9106470588235294,
+    "confidence": 0.911,
     "speaker_confidence": 0.969,
     "overlapped": false,
-    "id": "u12"
+    "redacted": false
    },
    {
+    "id": "u13",
     "speaker": "SPEAKER_00",
     "start": 93.791,
     "end": 99.338,
     "text": "Let's do that. Rima will wire the evidence check into the pipeline before Thursday.",
-    "confidence": 0.8952857142857142,
+    "confidence": 0.895,
     "speaker_confidence": 0.97,
     "overlapped": false,
-    "id": "u13"
+    "redacted": false
    },
    {
+    "id": "u14",
     "speaker": "SPEAKER_03",
     "start": 99.823,
     "end": 104.681,
     "text": "I can have it ready Wednesday if the transcript format is frozen today.",
-    "confidence": 0.8872307692307693,
+    "confidence": 0.887,
     "speaker_confidence": 0.967,
     "overlapped": false,
-    "id": "u14"
+    "redacted": false
    },
    {
+    "id": "u15",
     "speaker": "SPEAKER_00",
     "start": 105.16,
     "end": 111.538,
     "text": "Consider it frozen. Saad, you write the report against this format, and we submit Sunday.",
-    "confidence": 0.9101333333333332,
+    "confidence": 0.91,
     "speaker_confidence": 0.966,
     "overlapped": false,
-    "id": "u15"
+    "redacted": false
    }
   ]
  },
  "brief": {
   "summary": "AMI and ICSI are both downloaded and cleaned. Agreed. We flag overlap in the interface instead of forcing a single speaker. Let's do that. Rima will wire the evidence check into the pipeline before Thursday.",
+  "summary_evidence": {
+   "utterance_ids": [
+    "u2",
+    "u10",
+    "u13"
+   ],
+   "grounding": 1.0,
+   "verified": true
+  },
   "key_points": [
    {
     "text": "AMI and ICSI are both downloaded and cleaned.",
@@ -240,53 +264,44 @@ window.VOCALYZE_DEMO = {
   "action_items": [
    {
     "text": "Let's do that. Rima will wire the evidence check into the pipeline before Thursday.",
-    "owner": "Rima",
-    "due": "Thursday",
     "evidence": {
      "utterance_ids": [
       "u13"
      ],
      "grounding": 1.0,
      "verified": true
-    }
+    },
+    "owner": "Rima",
+    "due": "Thursday"
    },
    {
     "text": "I can have it ready Wednesday if the transcript format is frozen today.",
-    "owner": "the speaker",
-    "due": "Wednesday",
     "evidence": {
      "utterance_ids": [
       "u14"
      ],
      "grounding": 1.0,
      "verified": true
-    }
+    },
+    "owner": "the speaker",
+    "due": "Wednesday"
    },
    {
     "text": "Consider it frozen. Saad, you write the report against this format, and we submit Sunday.",
-    "owner": "Saad",
-    "due": null,
     "evidence": {
      "utterance_ids": [
       "u15"
      ],
      "grounding": 1.0,
      "verified": true
-    }
+    },
+    "owner": "Saad",
+    "due": null
    }
   ],
-  "summary_evidence": {
-   "utterance_ids": [
-    "u2",
-    "u10",
-    "u13"
-   ],
-   "grounding": 1.0,
-   "verified": true
-  },
   "dropped_claims": 0,
-  "backend": "extractive",
-  "model": "rule-based"
+  "model": "rule-based",
+  "backend": "extractive"
  },
  "quality": {
   "asr_mean_confidence": 0.902,
@@ -300,6 +315,9 @@ window.VOCALYZE_DEMO = {
  },
  "privacy": {
   "consent": true,
+  "redact_pii": true,
+  "delete_audio_after_asr": true,
+  "retention_hours": 24,
   "audio_retained": false,
   "encrypted_at_rest": true,
   "expires_at": null,

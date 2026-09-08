@@ -260,8 +260,9 @@ class JobStore:
             record = self._read_meta(job_id)
         except KeyError:
             return None
-        if record.state is JobState.purged:
-            return record
+        # The token is checked before the purge tombstone is revealed. Answering
+        # "410 Gone" to someone without the token would tell them a recording
+        # under that id once existed, which erasure is supposed to end.
         if not secrets.compare_digest(record.token_hash, _hash_token(token or "")):
             return None
         return record

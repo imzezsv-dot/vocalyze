@@ -130,7 +130,8 @@ the meeting.
 
 Measured against the scripted fixture, which has known ground truth: **100%
 word-level speaker accuracy**, with the injected crosstalk correctly flagged
-(`tests/test_alignment.py::TestFixtureRoundTrip`).
+(`tests/test_alignment.py::test_alignment_reproduces_the_fixture_ground_truth`
+and `::test_crosstalk_is_flagged_rather_than_hidden`).
 
 ---
 

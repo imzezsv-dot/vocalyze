@@ -34,6 +34,14 @@
   const state = { file: null, job: null, token: null, result: null, capabilities: null, live: false };
 
   // ---------------------------------------------------------------- helpers
+  /* Everything rendered through innerHTML below passes through esc() first.
+     Transcript text, speaker names and file names all originate outside this
+     script — a recording called `<img src=x onerror=…>` must render as text,
+     not run. */
+  const esc = (value) => String(value == null ? '' : value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
   const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   const speakerColor = (name, speakers) => {
     const index = Math.max(0, speakers.indexOf(name));
@@ -99,7 +107,7 @@
   function chooseFile(file) {
     if (!file) return;
     state.file = file;
-    el.dropTitle.innerHTML = `<span class="dropzone__file">${file.name}</span>`;
+    el.dropTitle.innerHTML = `<span class="dropzone__file">${esc(file.name)}</span>`;
     el.dropzone.querySelector('.dropzone__hint').textContent =
       `${(file.size / 1024 / 1024).toFixed(1)} MB · ready to send`;
     say('');
@@ -168,10 +176,10 @@
     el.stages.innerHTML = STAGES.map((name) => {
       const stage = byName[name] || { state: 'pending' };
       const detail = stage.detail || (stage.state === 'running' ? 'in progress' : '');
-      return `<div class="stage" data-state="${stage.state}">
+      return `<div class="stage" data-state="${esc(stage.state)}">
         <div class="stage__num"></div>
         <div class="stage__name">${STAGE_LABEL[name]}</div>
-        <div class="stage__detail">${detail}</div>
+        <div class="stage__detail">${esc(detail)}</div>
       </div>`;
     }).join('');
   }
@@ -239,12 +247,12 @@
       const classes = `ribbon__turn${u.overlapped ? ' is-overlap' : ''}`;
       const background = u.overlapped ? '' : `background:${speakerColor(u.speaker, speakers)};`;
       return `<div class="${classes}" style="inset-inline-start:${left}%;inline-size:${width}%;${background}"
-                title="${speakerLabel(u.speaker)} · ${clock(u.start)}"></div>`;
+                title="${esc(speakerLabel(u.speaker))} · ${clock(u.start)}"></div>`;
     }).join('');
     el.ribbonEnd.textContent = clock(total);
     el.ribbonLegend.innerHTML = speakers.map((name) =>
       `<span style="display:inline-flex;align-items:center;gap:.3rem;margin-inline-end:.9rem">
-         <span class="dot" style="background:${speakerColor(name, speakers)}"></span>${speakerLabel(name)}</span>`
+         <span class="dot" style="background:${speakerColor(name, speakers)}"></span>${esc(speakerLabel(name))}</span>`
     ).join('');
   }
 
@@ -253,7 +261,7 @@
     const ids = evidence.utterance_ids || [];
     const percent = Math.round((evidence.grounding || 0) * 100);
     const chips = ids.map((id) =>
-      `<button class="chip${evidence.verified ? '' : ' chip--weak'}" data-jump="${id}">${id}</button>`).join('');
+      `<button class="chip${evidence.verified ? '' : ' chip--weak'}" data-jump="${esc(id)}">${esc(id)}</button>`).join('');
     const note = evidence.verified
       ? `<span class="grounding">${percent}% of this wording appears in the cited lines</span>`
       : `<span class="grounding">not supported by the transcript</span>`;
@@ -261,7 +269,7 @@
   }
 
   function renderBrief(brief, quality) {
-    el.summary.innerHTML = (brief.summary || 'No summary was produced for this recording.')
+    el.summary.innerHTML = esc(brief.summary || 'No summary was produced for this recording.')
       + evidenceHtml(brief.summary_evidence);
 
     const groups = [
@@ -273,10 +281,10 @@
       const rows = items || [];
       group.hidden = rows.length === 0;
       list.innerHTML = rows.map((item) => {
-        const owner = item.owner ? `<span class="brief-item__owner">${item.owner}</span>` : '';
-        const due = item.due ? `<span class="meta"> · ${item.due}</span>` : '';
+        const owner = item.owner ? `<span class="brief-item__owner">${esc(item.owner)}</span>` : '';
+        const due = item.due ? `<span class="meta"> · ${esc(item.due)}</span>` : '';
         return `<li class="brief-item">
-          <span class="brief-item__text">${item.text}</span>
+          <span class="brief-item__text">${esc(item.text)}</span>
           ${owner || due ? `<div style="margin-block-start:.3rem">${owner}${due}</div>` : ''}
           ${evidenceHtml(item.evidence)}
         </li>`;
@@ -295,18 +303,18 @@
       if (u.overlapped) flags.push('<span class="flag">two speakers at once</span>');
       if (u.redacted) flags.push('<span class="flag flag--quiet">identifier removed</span>');
       if (u.speaker === 'UNKNOWN') flags.push('<span class="flag flag--quiet">speaker unclear</span>');
-      return `<article class="line" id="line-${u.id}">
+      return `<article class="line" id="line-${esc(u.id)}">
         <div class="line__gutter">
           <span class="dot" style="background:${speakerColor(u.speaker, speakers)}"></span>
-          <span class="line__id">${u.id}</span>
+          <span class="line__id">${esc(u.id)}</span>
         </div>
         <div>
           <div class="line__head">
-            <span class="line__speaker">${speakerLabel(u.speaker)}</span>
+            <span class="line__speaker">${esc(speakerLabel(u.speaker))}</span>
             <span class="line__time num">${clock(u.start)}</span>
             ${flags.join('')}
           </div>
-          <p class="line__text">${u.text}</p>
+          <p class="line__text">${esc(u.text)}</p>
         </div>
       </article>`;
     }).join('');
@@ -330,8 +338,8 @@
     ];
     el.quality.innerHTML = cards.map((card) =>
       `<div class="stat${card.flag ? ' stat--flag' : ''}">
-         <div class="stat__num">${card.value}</div>
-         <div class="stat__label">${card.label}</div>
+         <div class="stat__num">${esc(card.value)}</div>
+         <div class="stat__label">${esc(card.label)}</div>
        </div>`).join('');
   }
 
@@ -351,9 +359,11 @@
       [true, `Recognition: ${models.asr ? models.asr.backend + ' · ' + models.asr.model : 'not recorded'}. ` +
              `Diarization: ${models.diarization ? models.diarization.backend : 'not recorded'}. ` +
              `Brief: ${models.summarizer ? models.summarizer.backend : 'not recorded'}.`],
+      [true, `Everything for this recording is erased after ${Number(privacy.retention_hours) || 24} hours, ` +
+             `or the moment you press delete.`],
     ];
     el.receipts.innerHTML = rows.map(([ok, text]) =>
-      `<li><span class="${ok ? 'tick' : 'cross'}">${ok ? '✓' : '!'}</span><span>${text}</span></li>`).join('');
+      `<li><span class="${ok ? 'tick' : 'cross'}">${ok ? '✓' : '!'}</span><span>${esc(text)}</span></li>`).join('');
   }
 
   // --------------------------------------------------------------- actions

@@ -54,10 +54,14 @@ _RULES: list[tuple[str, re.Pattern[str]]] = [
     ("card", re.compile(r"\b\d(?:[ -]?\d){12,18}\b")),
     ("ip address", re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")),
     ("national id", re.compile(r"\b[12]\d{9}\b")),
-    ("phone", re.compile(r"(?<![\w.])\(?\+?\d[\d\s().-]{6,17}\d(?![\w.])")),
+    # Dots are not a phone separator here on purpose. Allowing them let the
+    # rule swallow any dotted numeric string a meeting actually contains —
+    # a build number, a malformed address, a version — as if it were a number
+    # someone could be called on.
+    ("phone", re.compile(r"(?<![\w.])\(?\+?\d[\d\s()-]{6,17}\d(?![\w.])")),
 ]
 
-_DATE_LIKE = re.compile(r"^\d{1,4}([/.-])\d{1,2}\1\d{1,4}$")
+_DATE_LIKE = re.compile(r"^\d{1,4}([/-])\d{1,2}\1\d{1,4}$")
 
 
 def redact_text(text: str, kinds: set[str] | None = None) -> tuple[str, RedactionReport]:

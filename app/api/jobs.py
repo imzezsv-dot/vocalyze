@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import secrets
 from typing import Annotated
 
 from fastapi import APIRouter, File, Form, Query, Request, UploadFile
@@ -26,7 +27,7 @@ from ..core.logging import get_logger
 from ..core.store import _shred
 from ..deps import JobDep, ServicesDep
 from ..pipeline.audio import extension_of
-from ..pipeline.orchestrator import ORIGINAL_BLOB, RESULT_BLOB
+from ..pipeline.orchestrator import ORIGINAL_BLOB, RESULT_BLOB, effective_privacy
 from ..schemas import (
     JobResult,
     JobState,
@@ -67,7 +68,9 @@ async def create_job(
     # Stream to a scratch file so a 2 GB upload never sits in memory, and so the
     # size limit is enforced while bytes arrive rather than after.
     settings.ensure_dirs()
-    scratch = settings.uploads_dir / f"incoming-{id(request):x}.part"
+    # A random name, not id(request): CPython reuses object addresses, so two
+    # uploads in flight could otherwise land on the same scratch file.
+    scratch = settings.uploads_dir / f"incoming-{secrets.token_hex(8)}.part"
     size = 0
     try:
         with scratch.open("wb") as sink:
@@ -127,6 +130,7 @@ async def create_job(
                 "brief": body["brief"],
                 "quality": body["quality"],
                 "privacy": {
+                    **effective_privacy(settings, completed),
                     "encrypted_at_rest": settings.encrypt_at_rest,
                     "audio_retained": services.store.blob_exists(completed.id, "audio.enc"),
                     "expires_at": payload["expires_at"],
@@ -194,7 +198,10 @@ async def get_result(job: JobDep, services: ServicesDep):
         brief=MeetingBrief(**payload["brief"]),
         quality=QualityReport(**payload["quality"]),
         privacy={
-            **job.privacy,
+            # Resolved values, not the raw per-job overrides: `null` in the
+            # store means "no choice was made", which is not an answer the
+            # interface or a reviewer can read.
+            **effective_privacy(services.settings, job),
             "audio_retained": services.store.blob_exists(job.id, "audio.enc"),
             "encrypted_at_rest": services.settings.encrypt_at_rest,
             "expires_at": summary.expires_at.isoformat() if summary.expires_at else None,

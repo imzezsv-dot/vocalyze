@@ -1,134 +1,140 @@
-# Delivery — Naif's part
+# Delivery — Integration & Privacy
 
-Vocalyze / Integration & Privacy layer. Everything listed against Naif in
-the responsibilities document is in this repo: **UI · Upload Flow · FastAPI
-Backend · Integration · Privacy Requirements**.
+Vocalyze's integration and privacy layer. Everything listed under this role in
+the responsibilities document is in this repository: **UI · Upload Flow ·
+FastAPI Backend · Integration · Privacy Requirements**.
 
 ---
 
 ## What to hand in
 
-Send Saad (Documentation & Demo) these three links:
-
 | Deliverable | Where | For |
 |---|---|---|
-| Source code | GitHub PR — this branch | Review, and the final report bibliography |
-| Live demo | Hugging Face Space (setup below) | The demo slot in the presentation |
-| Docs | `docs/README.md`, `docs/API.md`, `docs/PRIVACY.md`, `docs/INTEGRATION.md` | The report appendix |
+| Source code | This repository | Review, and the report bibliography |
+| Live demo | The Vercel deployment (below) | The demo slot in the presentation |
+| Docs | [`README.md`](README.md), [`docs/API.md`](docs/API.md), [`docs/PRIVACY.md`](docs/PRIVACY.md), [`docs/INTEGRATION.md`](docs/INTEGRATION.md) | The report appendix |
+| Test evidence | `pytest` — 97 tests, no network, no weights | The "how do you know it works" question |
 
-The team's models (Turki's data, Taghreed's Whisper, Rima's pyannote,
-Al-Jawharah's LLM) plug into this layer through the three contracts in
-`app/pipeline/` — `ASRBackend`, `DiarizationBackend`, `SummarizerBackend`.
-No code change here to add a real model, just an env var switch. That is
-the integration story to open the demo with.
+The other components — the dataset work, Whisper, pyannote and the LLM — plug
+into this layer through the three contracts in `app/pipeline/`:
+`ASRBackend`, `DiarizationBackend`, `SummarizerBackend`. Adding a real model
+takes no code change here, only an environment variable. That is the
+integration story to open the demo with.
 
 ---
 
-## Hugging Face Space (the live demo)
+## Running it
 
-Free, has GPU tier, and takes a Dockerfile as-is. This is the closest fit
-for the pipeline because the job queue is long-lived — **Vercel serverless
-functions are the wrong shape** (10–60 s ceiling, no shared filesystem,
-so no job progress and no encrypted store).
+**Locally, for a reviewer:**
 
-```
-1. huggingface.co/new-space → Docker template, name it "vocalyze".
-2. In Settings → Variables and secrets, add:
-     ENCRYPTION_KEY   = (paste the output of `python -m app.core.crypto`)
-     ASR_BACKEND      = mock         # switch to `whisper` when models load
-     DIARIZATION_BACKEND = mock       # or `pyannote` + HUGGINGFACE_TOKEN
-     SUMMARIZER_BACKEND  = mock       # or `llm` + LLM_BASE_URL
-3. `git remote add hf https://huggingface.co/spaces/<you>/vocalyze`
-4. `git push hf HEAD:main`
-5. Space builds the Docker image, boots on port 7860, and hands you the URL.
+```bash
+./run.sh          # virtualenv + encryption key + uvicorn, one command
+# then open http://127.0.0.1:8000
 ```
 
-The Space picks up `README_HF.md` as its front matter (the `---` block
-sets the SDK to docker and the app port to 7860).
+No model downloads: the scripted backends return the same shapes Whisper and
+pyannote do, so the interface is exercised end to end offline.
 
-## Vercel (one-click, no Docker)
+**The tests:**
 
-Vercel deploys this repo as-is — the FastAPI app runs on Vercel's Python
-serverless runtime, static assets are served from the edge CDN. No
-Dockerfile needed on Vercel's side.
+```bash
+pytest            # 97 tests, ~2 seconds
+```
+
+**With the team's real models:**
+
+```bash
+pip install -r requirements-models.txt
+```
+
+```ini
+ASR_BACKEND=whisper
+DIARIZATION_BACKEND=pyannote
+HUGGINGFACE_TOKEN=hf_…          # after accepting the pyannote licence
+SUMMARIZER_BACKEND=llm
+LLM_BASE_URL=http://127.0.0.1:11434/v1
+```
+
+---
+
+## The two deployments
+
+### Vercel — the always-on public URL
 
 ```
-1. vercel.com/new → import github.com/imzezsv-dot/test → project name "vocalyze".
+1. vercel.com/new → import github.com/imzezsv-dot/vocalyze → name it "vocalyze".
 2. Framework preset: Other. Root directory: repo root. Build command: (none).
 3. Deploy. Vercel reads vercel.json and:
      - runs api/index.py as the serverless FastAPI backend
-     - serves public/* from its edge CDN
+     - serves public/* from the edge CDN
 ```
 
-That's it. The upload runs the pipeline inline (single HTTP round-trip
-returns the finished result — no queue, no polling), because Vercel
-serverless has no background workers and no persistent filesystem. The
-mock backends produce a full transcript and brief in ~100 ms, well
-inside Vercel's 10 s Hobby ceiling.
+Set `ENCRYPTION_KEY` (from `python -m app.core.crypto`) in the project's
+environment variables; without one, each invocation mints an ephemeral key,
+which is fine for a preview and wrong for anything else.
 
-**What Vercel can and cannot do:**
+Because serverless functions have no background worker and no persistent
+disk, the upload runs the pipeline **inline** and returns the finished result
+in the same HTTP round-trip — the interface notices `result` in the response
+and skips polling. The scripted backends finish in about 100 ms, well inside
+the 10-second Hobby ceiling. `tests/test_deployment.py` covers this path.
 
-- ✅ live upload flow, real HTTP API (`/v1/jobs`, `/v1/privacy/policy`,
-  `/v1/capabilities`, `/v1/health`, `/docs`).
-- ✅ full interface, real speaker attribution & grounding on the demo
-  fixture.
-- ❌ Whisper, pyannote, an LLM — Vercel has no ffmpeg, no persistent
-  disk, no long-running worker, and the model weights are gigabytes.
-  For the real pipeline use the Hugging Face Space (above), Render, or
-  any Docker host.
+**What the Vercel build can and cannot do:**
 
-The two are complementary: Vercel is the always-on public preview;
-the Space is where the real models run.
+- ✅ the real interface, the real upload flow, the real HTTP API
+  (`/v1/jobs`, `/v1/privacy/policy`, `/v1/capabilities`, `/v1/health`, `/docs`),
+  and genuine speaker attribution and grounding over the scripted meeting.
+- ❌ Whisper, pyannote, an LLM. Vercel has no ffmpeg, no persistent disk and
+  no long-running worker, and the weights are gigabytes. The interface says so
+  itself: it reads `/v1/capabilities` and badges the build as scripted rather
+  than pretending a sample is your meeting.
 
-## Render / Fly / Railway (alternatives)
+### Docker — where the real models run
 
-`render.yaml` is a one-click Blueprint on Render. Fly and Railway both
-accept the Dockerfile directly (`fly launch --dockerfile Dockerfile`,
-`railway up`). Any of them work; pick whichever the team already uses.
-
-## Locally (for the reviewer)
+Any host that takes a Dockerfile: Hugging Face Spaces, Render, Fly, Railway.
 
 ```
-./run.sh                    # venv + key + uvicorn, single command
-# then http://127.0.0.1:8000
+1. huggingface.co/new-space → Docker template, name it "vocalyze".
+2. Settings → Variables and secrets:
+     ENCRYPTION_KEY      = (output of `python -m app.core.crypto`)
+     ASR_BACKEND         = whisper
+     DIARIZATION_BACKEND = pyannote
+     HUGGINGFACE_TOKEN   = hf_…
+     SUMMARIZER_BACKEND  = llm          # optional
+3. git remote add hf https://huggingface.co/spaces/<you>/vocalyze
+4. git push hf HEAD:main
 ```
 
-`./run.sh` mints an ENCRYPTION_KEY on first run and writes it to `.env`.
-No model downloads — the mock backends produce the same shape as Whisper
-and pyannote, so the interface is exercised end-to-end offline.
+The Space reads `README_HF.md` as its front matter — that `---` block sets the
+SDK to Docker and the port to 7860.
 
-To run with the team's real models:
-
-```
-pip install -r requirements-models.txt
-# then set ASR_BACKEND=whisper etc. in .env
-```
+The two are complementary: Vercel is the always-on preview of the system's
+shape; the Docker image is the same system with the real models behind it.
 
 ---
 
-## The presentation slot (Saad)
+## The presentation slot
 
-If you get five minutes at the demo, this is the order I'd use:
+Five minutes, in this order:
 
-1. Open the Space URL. Point at the italic "decided" in the hero — this
-   is the product's whole promise in one word.
-2. Press *See a finished example*. The brief and transcript render side
-   by side; press any `u12`-style id in the brief to jump to the line it
-   came from. That chip is the integration story: three models, one
-   verifiable output.
-3. Scroll to *The ledger*. The audit chain, the retention window, and
-   the receipts checklist are the privacy story — none of them are a
-   claim, all of them are inspectable at `/v1/privacy/*`.
+1. Open the deployment. The hero states the promise in one line: *who said
+   what, and what you decided.*
+2. Press **See a finished example**. The brief and the transcript render side
+   by side. Press any `u12`-style id in the brief and the transcript scrolls to
+   the line that claim came from. That chip is the integration story: three
+   models, one verifiable output.
+3. Scroll to **The ledger** — the audit chain, the retention window and the
+   receipts. None of it is a claim; all of it is inspectable live at
+   `/v1/privacy/policy` and `/v1/privacy/audit/verify`.
 4. `/docs` for the OpenAPI contract if the audience is technical.
 
 ---
 
-## What is *not* here on purpose
+## What is deliberately not here
 
-- No dataset code (Turki's), no ASR training or WER script (Taghreed's),
-  no diarization notebook (Rima's), no LLM prompt engineering
-  (Al-Jawharah's). Those live in the team notebook and plug into this
+- No dataset code, no ASR training or WER script, no diarization notebook, no
+  LLM prompt engineering. Those belong to the other components and reach this
   layer through the contracts above.
-- No authentication or user accounts. A job token gates each job; there
-  are no users. That is the right shape for a demo and a lab deployment;
-  a shared production service would add SSO on top.
+- No authentication or user accounts. A bearer token gates each job; there are
+  no users. That is the right shape for a lab deployment — a shared production
+  service would put SSO on top of it.

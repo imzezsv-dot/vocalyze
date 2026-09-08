@@ -156,7 +156,9 @@ def smooth_islands(speakers: list[str], min_island: int = 2) -> list[str]:
 # ---------------------------------------------------------------------------
 def _mean(values: list[float]) -> float | None:
     clean = [v for v in values if v is not None]
-    return sum(clean) / len(clean) if clean else None
+    # Rounded: this is a confidence shown to a reader, and float noise like
+    # 0.8982500000000001 reads as false precision in the API and the exports.
+    return round(sum(clean) / len(clean), 3) if clean else None
 
 
 def _flush(buffer: list[dict], speaker: str, turns: list[dict], opts: AlignOptions) -> dict | None:

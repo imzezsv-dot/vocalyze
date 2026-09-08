@@ -56,7 +56,7 @@ class Orchestrator:
         started = time.monotonic()
         record = self.store.get(job_id)
         data_key = self.store.data_key(record)
-        privacy = _effective_privacy(self.settings, record)
+        privacy = effective_privacy(self.settings, record)
         workdir = Path(tempfile.mkdtemp(prefix=f"vocalyze-{job_id}-", dir=self.settings.data_dir))
 
         try:
@@ -294,12 +294,20 @@ class Orchestrator:
         return brief, quality
 
 
-def _effective_privacy(settings: Settings, record: JobRecord) -> dict:
-    """Per-job choices override the deployment default, never the other way."""
+def effective_privacy(settings: Settings, record: JobRecord) -> dict:
+    """Per-job choices override the deployment default, never the other way.
+
+    Resolved rather than raw: a stored `null` means "no per-job choice was
+    made", which is an implementation detail. Callers — the pipeline and the
+    result endpoint alike — need the value actually in force.
+    """
     chosen = record.privacy or {}
     return {
+        "consent": bool(chosen.get("consent", False)),
+        "consent_recorded_at": chosen.get("consent_recorded_at"),
         "redact_pii": _pick(chosen.get("redact_pii"), settings.redact_pii),
         "delete_audio_after_asr": _pick(chosen.get("delete_audio_after_asr"), settings.delete_audio_after_asr),
+        "retention_hours": int(chosen.get("retention_hours") or settings.retention_hours),
     }
 
 

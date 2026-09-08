@@ -2,7 +2,7 @@
 
 ## 1 · Vercel preview (live UI + API, mock pipeline)
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fimzezsv-dot%2Ftest&project-name=vocalyze&repository-name=vocalyze)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fimzezsv-dot%2Fvocalyze&project-name=vocalyze&repository-name=vocalyze)
 
 - Click the button, sign in to Vercel, press **Deploy**. No configuration to
   fill in — `vercel.json` and `api/index.py` do the work.
@@ -45,17 +45,25 @@
   container, persistent disk, free CPU tier, optional GPU. The same
   codebase, same interface — flipped by three env vars.
 
-Both point at the same repo. Update code once, both deployments follow.
+Both point at the same repository. Update the code once and both
+deployments follow.
 
 ---
 
-## What still needs a human click
+## Before you call either one deployed
 
-I can prepare every file and script, but the final **Deploy** button on
-Vercel and Hugging Face requires *your* account login. That's the only
-step I cannot take for you — the platforms don't accept third-party
-deploys without a session token that only you can generate.
+- [ ] `ENCRYPTION_KEY` is set in the platform's environment variables, from
+      `python -m app.core.crypto`. Without it the Vercel build mints an
+      ephemeral key per invocation — fine for a preview, wrong for anything
+      that has to survive a restart.
+- [ ] `/v1/health` returns `"status": "ok"`.
+- [ ] `/v1/capabilities` reports the backends you expect. A build still on
+      the scripted models says `"demo_mode": true`, and the interface badges
+      itself accordingly — that is the intended behaviour, not a bug to hide.
+- [ ] `/v1/privacy/policy` reads the way you would be willing to defend it
+      in front of the people in the recording.
+- [ ] `CORS_ORIGINS` names the deployment's real origin.
 
-If you paste a Vercel personal token here (`vercel.com/account/tokens`),
-I can run `vercel deploy --token=<token> --prod` from this session and
-hand you back the live URL directly.
+The final **Deploy** click on Vercel or Hugging Face needs your own account
+session; neither platform accepts a third-party deploy without it. Do not
+put a personal access token in this repository or in any file you hand in.
