@@ -1,0 +1,26 @@
+# Render.com blueprint. `render blueprint apply` from the repo root, or
+# push a repo containing this file to a Render account with Blueprints on.
+services:
+  - type: web
+    name: vocalyze
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    autoDeploy: true
+    envVars:
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: DATA_DIR
+        value: /var/vocalyze
+      - key: PORT
+        value: 10000
+      - key: ASR_BACKEND
+        value: mock
+      - key: DIARIZATION_BACKEND
+        value: mock
+      - key: SUMMARIZER_BACKEND
+        value: mock
+    disk:
+      name: vocalyze-data
+      mountPath: /var/vocalyze
+      sizeGB: 1

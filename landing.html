@@ -1,0 +1,207 @@
+<!doctype html>
+<!-- dir is ltr for the English build. Every rule in styles.css uses logical
+     properties, so switching this one attribute to rtl flips the interface. -->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vocalyze — who said what, and what you decided</title>
+<meta name="description" content="Upload a meeting recording. Get a speaker-attributed transcript and a brief where every point cites the line it came from.">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="fonts/woff2/thmanyah-serif-display-black.woff2">
+<link rel="stylesheet" href="fonts.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="container masthead">
+  <div class="wordmark">
+    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+      <rect x="1" y="9" width="3" height="8" rx="1.5" fill="#0C3A2A"/>
+      <rect x="6" y="4" width="3" height="18" rx="1.5" fill="#01BA6C"/>
+      <rect x="11" y="7" width="3" height="12" rx="1.5" fill="#0C3A2A"/>
+      <rect x="16" y="2" width="3" height="22" rx="1.5" fill="#01BA6C"/>
+      <rect x="21" y="10" width="3" height="6" rx="1.5" fill="#0C3A2A"/>
+    </svg>
+    Vocalyze
+  </div>
+  <nav>
+    <a href="#ledger">Privacy</a>
+    <a href="/docs">API</a>
+    <span class="mode-badge" id="mode-badge" data-mode="checking">checking…</span>
+  </nav>
+</header>
+
+<main>
+  <!-- ---------------------------------------------------------------- -->
+  <section class="container hero">
+    <div class="hero-grid">
+      <div>
+        <h1>Who said what, and what did you <span class="mark">decide</span>?</h1>
+        <p class="hero-lede">
+          Two models answer half the question each. Whisper knows what was said and when;
+          pyannote knows who was speaking and when. Vocalyze merges the two clocks into one
+          attributed transcript, then writes a brief in which every point carries the line it came from.
+        </p>
+
+        <figure class="figure">
+          <svg viewBox="0 0 560 132" role="img" aria-labelledby="figure-title">
+            <title id="figure-title">Two model timelines merging into one attributed line</title>
+            <text x="0" y="12" font-family="ThmSans, system-ui, sans-serif" font-size="10" fill="#6B6B66">words, from speech recognition</text>
+            <g fill="#0E0E0D" opacity=".55">
+              <rect x="0" y="20" width="14" height="7" rx="3"/><rect x="18" y="20" width="26" height="7" rx="3"/>
+              <rect x="48" y="20" width="10" height="7" rx="3"/><rect x="62" y="20" width="34" height="7" rx="3"/>
+              <rect x="100" y="20" width="18" height="7" rx="3"/><rect x="130" y="20" width="30" height="7" rx="3"/>
+              <rect x="164" y="20" width="12" height="7" rx="3"/><rect x="180" y="20" width="40" height="7" rx="3"/>
+              <rect x="228" y="20" width="16" height="7" rx="3"/><rect x="248" y="20" width="28" height="7" rx="3"/>
+              <rect x="280" y="20" width="22" height="7" rx="3"/><rect x="306" y="20" width="36" height="7" rx="3"/>
+              <rect x="346" y="20" width="14" height="7" rx="3"/><rect x="364" y="20" width="30" height="7" rx="3"/>
+              <rect x="398" y="20" width="20" height="7" rx="3"/><rect x="422" y="20" width="44" height="7" rx="3"/>
+              <rect x="470" y="20" width="18" height="7" rx="3"/><rect x="492" y="20" width="26" height="7" rx="3"/>
+              <rect x="522" y="20" width="38" height="7" rx="3"/>
+            </g>
+
+            <text x="0" y="52" font-family="ThmSans, system-ui, sans-serif" font-size="10" fill="#6B6B66">turns, from diarization</text>
+            <g>
+              <rect x="0" y="60" width="118" height="9" rx="4.5" fill="#0C3A2A"/>
+              <rect x="126" y="60" width="96" height="9" rx="4.5" fill="#78A8D0"/>
+              <rect x="214" y="60" width="14" height="9" rx="4.5" fill="#E0512F"/>
+              <rect x="230" y="60" width="112" height="9" rx="4.5" fill="#A890D8"/>
+              <rect x="348" y="60" width="120" height="9" rx="4.5" fill="#0C3A2A"/>
+              <rect x="474" y="60" width="86" height="9" rx="4.5" fill="#C08A2E"/>
+            </g>
+
+            <path d="M60 76 C 60 92, 120 92, 120 104 M280 76 C 280 92, 300 92, 300 104 M470 76 C 470 92, 430 92, 430 104"
+                  stroke="#01BA6C" stroke-width="1.5" fill="none" opacity=".8"/>
+
+            <text x="0" y="98" font-family="ThmSans, system-ui, sans-serif" font-size="10" fill="#6B6B66">one line per speaker, with a citable id</text>
+            <g>
+              <rect x="0" y="106" width="118" height="14" rx="7" fill="#0C3A2A" opacity=".14"/>
+              <circle cx="10" cy="113" r="3.5" fill="#0C3A2A"/>
+              <rect x="126" y="106" width="96" height="14" rx="7" fill="#78A8D0" opacity=".22"/>
+              <circle cx="136" cy="113" r="3.5" fill="#78A8D0"/>
+              <rect x="230" y="106" width="112" height="14" rx="7" fill="#A890D8" opacity=".22"/>
+              <circle cx="240" cy="113" r="3.5" fill="#A890D8"/>
+              <rect x="348" y="106" width="120" height="14" rx="7" fill="#0C3A2A" opacity=".14"/>
+              <circle cx="358" cy="113" r="3.5" fill="#0C3A2A"/>
+              <rect x="474" y="106" width="86" height="14" rx="7" fill="#C08A2E" opacity=".22"/>
+              <circle cx="484" cy="113" r="3.5" fill="#C08A2E"/>
+            </g>
+          </svg>
+          <figcaption class="meta">The striped span is crosstalk: two people talking at once. It stays marked rather than being assigned to a guess.</figcaption>
+        </figure>
+      </div>
+
+      <!-- upload -->
+      <div class="upload-card">
+        <div class="dropzone" id="dropzone" role="button" tabindex="0"
+             aria-describedby="dropzone-hint">
+          <div class="dropzone__title" id="dropzone-title">Drop a recording, or choose a file</div>
+          <div class="dropzone__hint" id="dropzone-hint">wav, mp3, m4a, flac, ogg, webm or mp4 · up to 200 MB</div>
+          <input type="file" id="file-input" class="visually-hidden"
+                 accept=".wav,.mp3,.m4a,.flac,.ogg,.opus,.webm,.mp4,audio/*,video/mp4">
+        </div>
+
+        <div class="consent">
+          <input type="checkbox" id="consent">
+          <label for="consent">Everyone in this recording agreed to it being transcribed and summarised.</label>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn" id="start" disabled>Transcribe the meeting</button>
+          <button class="btn btn--quiet" id="load-sample">See a finished example</button>
+        </div>
+
+        <p class="notice" id="notice" hidden></p>
+
+        <div class="privacy-note" id="privacy-note">
+          Audio is encrypted the moment it lands and <strong>deleted once it has been transcribed</strong>.
+          The transcript is erased after 24 hours, or now, if you press delete.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="container pipeline" id="pipeline" hidden>
+    <div class="pipeline__head">
+      <h2 id="pipeline-title">Working through the recording</h2>
+      <span class="meta num" id="pipeline-file"></span>
+    </div>
+    <div class="stages" id="stages"></div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="container results" id="results" hidden>
+    <div class="ribbon">
+      <div class="ribbon__track" id="ribbon" role="img" aria-label="Who held the floor across the meeting"></div>
+      <div class="ribbon__scale">
+        <span class="meta num">0:00</span>
+        <span class="meta" id="ribbon-legend"></span>
+        <span class="meta num" id="ribbon-end"></span>
+      </div>
+    </div>
+
+    <div class="results__grid">
+      <div>
+        <h2 class="panel-title">The brief</h2>
+        <p class="panel-note meta" id="brief-note"></p>
+
+        <p class="brief-summary" id="summary"></p>
+
+        <div class="brief-group" id="group-decisions" hidden>
+          <h3>Decisions</h3>
+          <ul class="brief-list" id="decisions"></ul>
+        </div>
+        <div class="brief-group" id="group-actions" hidden>
+          <h3>Action items</h3>
+          <ul class="brief-list" id="actions"></ul>
+        </div>
+        <div class="brief-group" id="group-points" hidden>
+          <h3>Key points</h3>
+          <ul class="brief-list" id="points"></ul>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn--quiet" data-export="md">Download brief</button>
+          <button class="btn btn--quiet" data-export="srt">Download subtitles</button>
+          <button class="btn btn--quiet" data-export="json">Download JSON</button>
+        </div>
+      </div>
+
+      <div class="transcript-col">
+        <h2 class="panel-title">The transcript</h2>
+        <p class="panel-note meta" id="transcript-note"></p>
+        <div class="transcript" id="transcript"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="container ledger" id="ledger">
+    <h2>What the system knows about its own answer</h2>
+    <p class="meta">Confidence, crosstalk and dropped claims are shown rather than smoothed over. A brief you cannot check is not worth reading.</p>
+
+    <div class="ledger__grid" id="quality"></div>
+
+    <h3 style="margin-block-end:var(--s-2)">What happened to your recording</h3>
+    <ul class="receipts" id="receipts"></ul>
+
+    <div class="btn-row">
+      <button class="btn btn--danger" id="delete-job" hidden>Delete this recording now</button>
+      <a class="btn btn--quiet" href="/v1/privacy/policy" target="_blank" rel="noopener">Read the live policy</a>
+      <a class="btn btn--quiet" href="/v1/privacy/audit/verify" target="_blank" rel="noopener">Verify the audit chain</a>
+    </div>
+  </section>
+</main>
+
+<footer class="container site-foot">
+  <p class="meta">
+    Vocalyze · integration and privacy layer · built on the Naif design system.
+    Speech recognition by Whisper, diarization by pyannote, brief by the summariser — merged and verified here.
+  </p>
+</footer>
+
+<script src="demo-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

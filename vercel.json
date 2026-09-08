@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/index.py", "use": "@vercel/python" },
+    { "src": "public/**",    "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/static/fonts/(.*)", "headers": { "Cache-Control": "public, max-age=31536000, immutable" }, "dest": "/public/fonts/$1" },
+    { "src": "/static/(.*)",       "headers": { "Cache-Control": "public, max-age=3600" }, "dest": "/public/$1" },
+    { "src": "/v1/(.*)",           "dest": "/api/index.py" },
+    { "src": "/(docs|redoc|openapi\\.json)", "dest": "/api/index.py" },
+    { "src": "/(.*)",              "dest": "/api/index.py" }
+  ]
+}

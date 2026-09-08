@@ -1,0 +1,16 @@
+/* Thmanyah type family — official web fonts (woff2), 3 families × 5 weights */
+@font-face{font-family:'ThmSerifDisplay';font-weight:300;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-serif-display-light.woff2') format('woff2');}
+@font-face{font-family:'ThmSerifDisplay';font-weight:400;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-serif-display-regular.woff2') format('woff2');}
+@font-face{font-family:'ThmSerifDisplay';font-weight:500;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-serif-display-medium.woff2') format('woff2');}
+@font-face{font-family:'ThmSerifDisplay';font-weight:700;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-serif-display-bold.woff2') format('woff2');}
+@font-face{font-family:'ThmSerifDisplay';font-weight:900;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-serif-display-black.woff2') format('woff2');}
+@font-face{font-family:'ThmSerifText';font-weight:300;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-serif-text-light.woff2') format('woff2');}
+@font-face{font-family:'ThmSerifText';font-weight:400;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-serif-text-regular.woff2') format('woff2');}
+@font-face{font-family:'ThmSerifText';font-weight:500;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-serif-text-medium.woff2') format('woff2');}
+@font-face{font-family:'ThmSerifText';font-weight:700;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-serif-text-bold.woff2') format('woff2');}
+@font-face{font-family:'ThmSerifText';font-weight:900;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-serif-text-black.woff2') format('woff2');}
+@font-face{font-family:'ThmSans';font-weight:300;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-sans-light.woff2') format('woff2');}
+@font-face{font-family:'ThmSans';font-weight:400;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-sans-regular.woff2') format('woff2');}
+@font-face{font-family:'ThmSans';font-weight:500;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-sans-medium.woff2') format('woff2');}
+@font-face{font-family:'ThmSans';font-weight:700;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-sans-bold.woff2') format('woff2');}
+@font-face{font-family:'ThmSans';font-weight:900;font-style:normal;font-display:swap;src:url('fonts/woff2/thmanyah-sans-black.woff2') format('woff2');}

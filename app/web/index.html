@@ -1,0 +1,282 @@
+<!doctype html>
+<!-- dir is ltr for the English build. Every rule in styles.css uses logical
+     properties, so switching this one attribute to rtl flips the interface. -->
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vocalyze — who said what, and what you decided</title>
+<meta name="description" content="Upload a meeting recording. Get a speaker-attributed transcript and a brief where every point cites the line it came from.">
+<meta name="theme-color" content="#EFE9D8">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="/static/fonts/woff2/thmanyah-serif-display-bold.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="/static/fonts/woff2/thmanyah-serif-text-regular.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="/static/fonts/woff2/thmanyah-sans-medium.woff2">
+<link rel="stylesheet" href="/static/fonts.css">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+<header class="container masthead">
+  <a class="wordmark" href="/">
+    <svg width="22" height="22" viewBox="0 0 26 26" aria-hidden="true">
+      <rect x="1"  y="10" width="2.5" height="6"  fill="#0F4A34"/>
+      <rect x="6"  y="5"  width="2.5" height="16" fill="#0F4A34"/>
+      <rect x="11" y="8"  width="2.5" height="10" fill="#0F4A34"/>
+      <rect x="16" y="3"  width="2.5" height="20" fill="#0F4A34"/>
+      <rect x="21" y="10" width="2.5" height="6"  fill="#0F4A34"/>
+    </svg>
+    Vocalyze
+  </a>
+  <nav>
+    <a href="#pipeline">Pipeline</a>
+    <a href="#ledger">Privacy</a>
+    <a href="/docs">API</a>
+    <span class="mode-badge" id="mode-badge" data-mode="checking">checking…</span>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ======================= hero spread ======================= -->
+  <section class="container hero">
+    <div class="hero-issue">
+      <span>Vocalyze · Naif — Integration & Privacy</span>
+      <span>Volume 01 · Meeting brief system</span>
+    </div>
+
+    <div class="hero-grid">
+      <div>
+        <h1>Who said what, and what you <em>decided</em>.</h1>
+        <p class="hero-lede">
+          Two models answer half the question each. Whisper knows what was said and when;
+          pyannote knows who was speaking and when. Vocalyze merges the two clocks into one
+          attributed transcript, then writes a brief in which every point carries the line it came from.
+        </p>
+
+        <div class="hero-byline">
+          <span><b>Recognition</b> Whisper</span>
+          <span><b>Diarization</b> pyannote</span>
+          <span><b>Summary</b> LLM · grounded</span>
+        </div>
+
+        <figure class="figure" aria-labelledby="figure-title">
+          <svg viewBox="0 0 620 180" role="img">
+            <title id="figure-title">Two model timelines merging into one attributed line</title>
+            <!-- axis rules -->
+            <line x1="0" y1="30"  x2="620" y2="30"  stroke="#C9C0A8" stroke-width=".5"/>
+            <line x1="0" y1="90"  x2="620" y2="90"  stroke="#C9C0A8" stroke-width=".5"/>
+            <line x1="0" y1="150" x2="620" y2="150" stroke="#C9C0A8" stroke-width=".5"/>
+
+            <text x="0" y="22" font-family="ThmSans, system-ui" font-size="9" fill="#737870" letter-spacing="1.5">01 · WORDS · SPEECH RECOGNITION</text>
+            <g fill="#2A2E28">
+              <rect x="0"   y="36" width="14" height="6"/><rect x="18"  y="36" width="26" height="6"/>
+              <rect x="48"  y="36" width="10" height="6"/><rect x="62"  y="36" width="34" height="6"/>
+              <rect x="100" y="36" width="18" height="6"/><rect x="130" y="36" width="30" height="6"/>
+              <rect x="164" y="36" width="12" height="6"/><rect x="180" y="36" width="40" height="6"/>
+              <rect x="228" y="36" width="16" height="6"/><rect x="248" y="36" width="28" height="6"/>
+              <rect x="280" y="36" width="22" height="6"/><rect x="306" y="36" width="36" height="6"/>
+              <rect x="346" y="36" width="14" height="6"/><rect x="364" y="36" width="30" height="6"/>
+              <rect x="398" y="36" width="20" height="6"/><rect x="422" y="36" width="44" height="6"/>
+              <rect x="470" y="36" width="18" height="6"/><rect x="492" y="36" width="26" height="6"/>
+              <rect x="522" y="36" width="38" height="6"/><rect x="564" y="36" width="30" height="6"/>
+            </g>
+
+            <text x="0" y="82" font-family="ThmSans, system-ui" font-size="9" fill="#737870" letter-spacing="1.5">02 · TURNS · DIARIZATION</text>
+            <g fill="none" stroke-width="7">
+              <line x1="4"   y1="99" x2="118" y2="99" stroke="#131612"/>
+              <line x1="126" y1="99" x2="222" y2="99" stroke="#385C86"/>
+              <line x1="230" y1="99" x2="342" y2="99" stroke="#6A5093"/>
+              <line x1="348" y1="99" x2="468" y2="99" stroke="#0F4A34"/>
+              <line x1="474" y1="99" x2="594" y2="99" stroke="#8B5A17"/>
+            </g>
+            <!-- crosstalk marker -->
+            <rect x="214" y="95" width="14" height="8" fill="url(#hatch)"/>
+            <defs>
+              <pattern id="hatch" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)">
+                <rect width="4" height="4" fill="#A93A18" opacity=".85"/>
+                <line x1="0" y1="0" x2="0" y2="4" stroke="#EFE9D8" stroke-width="1.5"/>
+              </pattern>
+            </defs>
+
+            <!-- merge indicators — tiny ticks -->
+            <g stroke="#0F4A34" stroke-width=".8" fill="none">
+              <path d="M60 106 v14 M60 120 h60 M120 120 v14"/>
+              <path d="M280 106 v14 M280 120 h20 M300 120 v14"/>
+              <path d="M470 106 v14 M470 120 h-40 M430 120 v14"/>
+            </g>
+
+            <text x="0" y="142" font-family="ThmSans, system-ui" font-size="9" fill="#737870" letter-spacing="1.5">03 · ATTRIBUTED · ONE LINE PER SPEAKER, WITH A CITABLE ID</text>
+            <g font-family="JetBrains Mono, monospace" font-size="8" fill="#131612">
+              <g><line x1="0"   y1="160" x2="118" y2="160" stroke="#131612" stroke-width="1.5"/>
+                 <circle cx="4" cy="160" r="2.5" fill="#131612"/><text x="10" y="172" fill="#737870">u1 · SPEAKER 00</text></g>
+              <g><line x1="126" y1="160" x2="222" y2="160" stroke="#385C86" stroke-width="1.5"/>
+                 <circle cx="130" cy="160" r="2.5" fill="#385C86"/><text x="136" y="172" fill="#737870">u2 · SPEAKER 01</text></g>
+              <g><line x1="230" y1="160" x2="342" y2="160" stroke="#6A5093" stroke-width="1.5"/>
+                 <circle cx="234" cy="160" r="2.5" fill="#6A5093"/><text x="240" y="172" fill="#737870">u3 · SPEAKER 02</text></g>
+              <g><line x1="348" y1="160" x2="468" y2="160" stroke="#0F4A34" stroke-width="1.5"/>
+                 <circle cx="352" cy="160" r="2.5" fill="#0F4A34"/><text x="358" y="172" fill="#737870">u4 · SPEAKER 00</text></g>
+              <g><line x1="474" y1="160" x2="594" y2="160" stroke="#8B5A17" stroke-width="1.5"/>
+                 <circle cx="478" cy="160" r="2.5" fill="#8B5A17"/><text x="484" y="172" fill="#737870">u5 · SPEAKER 03</text></g>
+            </g>
+          </svg>
+          <figcaption>Fig. 01 — the hatched band is crosstalk. It stays marked rather than assigned to a guess.</figcaption>
+        </figure>
+      </div>
+
+      <!-- upload panel, quiet -->
+      <aside class="upload" aria-label="Upload a recording">
+        <div class="upload__head">
+          <b>Upload</b>
+          <span>Step 01 / 03</span>
+        </div>
+
+        <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-describedby="dropzone-hint">
+          <div class="dropzone__title" id="dropzone-title">Drop a recording, or choose a file</div>
+          <div class="dropzone__hint" id="dropzone-hint">wav · mp3 · m4a · flac · ogg · webm · mp4 — up to 200 MB</div>
+          <input type="file" id="file-input" class="visually-hidden"
+                 accept=".wav,.mp3,.m4a,.flac,.ogg,.opus,.webm,.mp4,audio/*,video/mp4">
+        </div>
+
+        <label class="consent">
+          <input type="checkbox" id="consent">
+          <span>Everyone in this recording agreed to it being transcribed and summarised.</span>
+        </label>
+
+        <div class="btn-row">
+          <button class="btn btn--primary" id="start" disabled>Transcribe the meeting</button>
+          <button class="btn btn--quiet" id="load-sample">See a finished example</button>
+        </div>
+
+        <p class="notice" id="notice" hidden></p>
+
+        <p class="upload__foot" id="privacy-note">
+          <b>Encrypted on arrival</b>, deleted once transcribed. The transcript expires within 24 hours, or immediately on request.
+        </p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ======================= metrics rail ======================= -->
+  <section class="container rail" aria-label="What this build promises">
+    <div class="rail__grid">
+      <div class="rail__cell">
+        <span class="rail__lbl">Alignment</span>
+        <span class="rail__val">100<small>% word-level</small></span>
+      </div>
+      <div class="rail__cell">
+        <span class="rail__lbl">Grounding</span>
+        <span class="rail__val">0.55<small>min overlap</small></span>
+      </div>
+      <div class="rail__cell">
+        <span class="rail__lbl">Encryption</span>
+        <span class="rail__val">AES-256<small>per job</small></span>
+      </div>
+      <div class="rail__cell">
+        <span class="rail__lbl">Retention</span>
+        <span class="rail__val">24<small>hours default</small></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= pipeline ======================= -->
+  <section class="container pipeline" id="pipeline" hidden>
+    <div class="pipeline__head">
+      <div>
+        <span class="kicker"><span class="rule"></span>Now processing</span>
+        <h2 id="pipeline-title">Working through the recording</h2>
+      </div>
+      <span class="meta num" id="pipeline-file"></span>
+    </div>
+    <div class="stages" id="stages"></div>
+  </section>
+
+  <!-- ======================= results ======================= -->
+  <section class="container results" id="results" hidden>
+    <span class="kicker"><span class="rule"></span>Who held the floor</span>
+    <div class="ribbon">
+      <div class="ribbon__track" id="ribbon" role="img" aria-label="Who held the floor across the meeting"></div>
+      <div class="ribbon__scale">
+        <span class="meta num">0:00</span>
+        <span class="meta" id="ribbon-legend"></span>
+        <span class="meta num" id="ribbon-end"></span>
+      </div>
+    </div>
+
+    <div class="results__grid">
+      <div class="panel">
+        <span class="kicker"><span class="rule"></span>The brief</span>
+        <h2 class="panel-title" style="margin-block:.4rem 0">What it all meant</h2>
+        <p class="panel-note meta" id="brief-note"></p>
+
+        <p class="brief-summary" id="summary"></p>
+
+        <div class="brief-group" id="group-decisions" hidden>
+          <h3>Decisions</h3>
+          <ul class="brief-list" id="decisions"></ul>
+        </div>
+        <div class="brief-group" id="group-actions" hidden>
+          <h3>Action items</h3>
+          <ul class="brief-list" id="actions"></ul>
+        </div>
+        <div class="brief-group" id="group-points" hidden>
+          <h3>Key points</h3>
+          <ul class="brief-list" id="points"></ul>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn--quiet" data-export="md">Brief · Markdown</button>
+          <button class="btn btn--quiet" data-export="srt">Subtitles · SRT</button>
+          <button class="btn btn--quiet" data-export="json">Full · JSON</button>
+        </div>
+      </div>
+
+      <div class="transcript-col">
+        <div class="panel">
+          <span class="kicker"><span class="rule"></span>The transcript</span>
+          <h2 class="panel-title" style="margin-block:.4rem 0">Who said what</h2>
+          <p class="panel-note meta" id="transcript-note"></p>
+          <div class="transcript" id="transcript"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= ledger ======================= -->
+  <section class="container ledger" id="ledger">
+    <span class="kicker"><span class="rule"></span>The ledger</span>
+    <h2>What the system knows about its own answer</h2>
+    <p class="meta">Confidence, crosstalk and dropped claims are shown rather than smoothed over. A brief you cannot check is not worth reading.</p>
+
+    <div class="ledger__grid" id="quality"></div>
+
+    <div class="receipts-wrap">
+      <h3>What happened to your recording</h3>
+      <ul class="receipts" id="receipts"></ul>
+
+      <div class="btn-row">
+        <button class="btn btn--danger" id="delete-job" hidden>Delete this recording now</button>
+        <a class="btn btn--quiet" href="/v1/privacy/policy" target="_blank" rel="noopener">Read the live policy</a>
+        <a class="btn btn--quiet" href="/v1/privacy/audit/verify" target="_blank" rel="noopener">Verify the audit chain</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="container site-foot">
+  <div class="colophon">
+    <p>
+      Vocalyze · integration & privacy layer · built on the Naif design system.
+      Speech recognition by Whisper, diarization by pyannote, brief by the summariser — merged and verified here.
+    </p>
+    <nav>
+      <a href="/docs">API</a>
+      <a href="/v1/health">Health</a>
+      <a href="/v1/capabilities">Capabilities</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="/static/demo-data.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

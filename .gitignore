@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+var/
+vocalyze.zip
+vocalyze/
+project_files/
+*.egg-info/
+.pytest_cache/
+.DS_Store

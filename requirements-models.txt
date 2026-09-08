@@ -1,0 +1,8 @@
+# Real model backends. Only needed if ASR_BACKEND, DIARIZATION_BACKEND or
+# SUMMARIZER_BACKEND is switched away from `mock`.
+
+faster-whisper>=1.0
+openai-whisper>=20231117 ; python_version >= "3.9"
+pyannote.audio>=3.1
+torch>=2.1
+openai>=1.30
