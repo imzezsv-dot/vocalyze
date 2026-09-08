@@ -280,6 +280,11 @@
 </footer>
 
 <script src="/static/demo-data.js"></script>
+<!-- The pipeline and the in-browser models. Loaded before app.js, which uses
+     them to transcribe locally when no API answers — the static build's whole
+     point. Both are inert when a server is there to do the work. -->
+<script src="/static/pipeline.js"></script>
+<script src="/static/browser-asr.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

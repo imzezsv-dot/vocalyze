@@ -130,6 +130,8 @@ a:hover { color: var(--accent-2); }
 /* Real transcription with a scripted stage after it — closer to live than to
    demo, and it must not read as either. */
 .mode-badge[data-mode="partial"] { color: #6A5093; border-color: #A796C4; }
+/* The static build: real models, running on the visitor's own device. */
+.mode-badge[data-mode="browser"] { color: var(--lead); border-color: var(--lead); }
 .mode-badge[data-mode="offline"] { color: var(--flag); border-color: #C69077; }
 
 /* ============================================================

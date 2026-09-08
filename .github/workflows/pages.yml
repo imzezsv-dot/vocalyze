@@ -1,0 +1,92 @@
+name: Publish the site
+
+# Builds the browser-side interface and publishes it to GitHub Pages.
+#
+# This is the always-on public URL. There is no server behind it: Whisper runs
+# in the visitor's browser through Transformers.js, and the integration and
+# grounding logic is the port in app/web/pipeline.js, which
+# tests/test_browser_pipeline.py holds to the Python it mirrors.
+#
+# Free, permanent, and no account to arrange — GitHub Pages is already part of
+# this repository.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/web/**"
+      - "scripts/build_static.py"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a queued run replaces a waiting one rather than
+# racing it. `cancel-in-progress: false` so a deploy already uploading is
+# allowed to finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build the static site
+        run: python -m scripts.build_static --pages
+
+      - name: Check the build is self-contained
+        # The build script already refuses absolute /static paths. This catches
+        # the other way a project page breaks: a file the HTML references that
+        # the build never copied.
+        run: |
+          set -euo pipefail
+          test -f site/index.html
+          for asset in styles.css fonts.css app.js pipeline.js browser-asr.js demo-data.js; do
+            test -f "site/$asset" || { echo "::error::site/$asset is missing"; exit 1; }
+          done
+          test -d site/fonts/woff2
+          echo "site/ contains $(find site -type f | wc -l) files"
+
+      - uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on for this repository if it is not already, so this
+          # works without anyone visiting the settings page first.
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Where it lives
+        run: |
+          {
+            echo "## Your live site"
+            echo
+            echo "# ${{ steps.deployment.outputs.page_url }}"
+            echo
+            echo "Open it, tick the consent box, upload a recording. Whisper runs"
+            echo "**in the browser** — the audio never leaves the device."
+            echo
+            echo "The first run downloads the model (about 80 MB) and the browser"
+            echo "caches it. Later runs start immediately."
+          } >> "$GITHUB_STEP_SUMMARY"

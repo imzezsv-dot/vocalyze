@@ -6,6 +6,10 @@
 (() => {
   'use strict';
 
+  // Same-origin, so the base is the empty string. `null` means there is no API
+  // to call at all (opened from disk). Test it against null explicitly: `''`
+  // is falsy, so a truthiness check reads "served over http" as "no API" and
+  // the interface never asks what it is running.
   const API = location.protocol.startsWith('http') ? '' : null; // file:// has no API
   const STAGES = ['normalizing', 'transcribing', 'diarizing', 'aligning', 'summarizing'];
   const STAGE_LABEL = {
@@ -94,7 +98,14 @@
 
   // ------------------------------------------------------------ capabilities
   async function detect() {
-    if (!API) { setMode('demo', 'demo mode'); return null; }
+    if (API === null) {
+      if (window.VocalyzeBrowserASR && window.VocalyzePipeline) {
+        setMode('browser', 'runs in your browser');
+        return null;
+      }
+      setMode('demo', 'demo mode');
+      return null;
+    }
     try {
       const capabilities = await api('/v1/capabilities');
       state.capabilities = capabilities;
@@ -125,7 +136,18 @@
       // and a server that answered 500 identically, and those need different
       // fixes — whoever is debugging the deployment should not have to guess.
       console.error('[vocalyze] /v1/capabilities failed:', error.message);
-      setMode('offline', 'offline · sample');
+      // No API. On the static build that is not a degraded state — the models
+      // run in the page — so say what this build actually does.
+      if (window.VocalyzeBrowserASR && window.VocalyzePipeline) {
+        setMode('browser', 'runs in your browser');
+        el.badge.title = 'Whisper runs on this device. Your recording is never uploaded.';
+        el.privacyNote.innerHTML =
+          '<strong>Nothing is uploaded.</strong> The models run in this tab, on your device — '
+          + 'the recording never leaves it. The first run downloads Whisper (about 80 MB), '
+          + 'which the browser then caches.';
+      } else {
+        setMode('offline', 'offline · sample');
+      }
       return null;
     }
   }
@@ -187,6 +209,9 @@
   el.start.addEventListener('click', async () => {
     if (!state.file) return;
     if (!state.live) {
+      // No server to upload to — so run the models here instead. The recording
+      // never leaves the machine, which is a better answer than refusing.
+      if (window.VocalyzeBrowserASR && window.VocalyzePipeline) return transcribeInBrowser();
       say('No API is reachable, so this file cannot be processed. Showing the finished example instead.');
       return showSample();
     }
@@ -274,6 +299,46 @@
     el.start.disabled = false;
     el.start.textContent = 'Transcribe another meeting';
     refreshStart();
+  }
+
+  // ------------------------------------------------------- in-browser mode
+  /* Run the models in the page, for a build with no server behind it.
+   *
+   * The stage list is the same five the service reports, driven by the same
+   * renderer: the point of the browser build is that it runs the pipeline, not
+   * that it imitates the screenshots. */
+  async function transcribeInBrowser() {
+    el.start.disabled = true;
+    el.start.textContent = 'Working…';
+    startPipeline(state.file.name);
+
+    const stages = STAGES.map((name) => ({ name, state: 'pending', detail: '' }));
+    const byName = Object.fromEntries(stages.map((s) => [s.name, s]));
+    const onStage = (name, stageState, detail) => {
+      if (!byName[name]) return;
+      byName[name].state = stageState;
+      if (detail !== undefined) byName[name].detail = detail;
+      renderStages(stages);
+    };
+
+    try {
+      const result = await window.VocalyzeBrowserASR.transcribe(state.file, {
+        model: (window.VOCALYZE_BROWSER_MODEL || 'base'),
+        onStage,
+      });
+      el.pipelineTitle.textContent = 'Done';
+      state.job = null;
+      show(result);
+    } catch (error) {
+      // Name the stage that failed rather than only the message: "failed to
+      // fetch" three minutes into a model download needs a different answer
+      // from the same words during decoding.
+      const running = stages.find((s) => s.state === 'running');
+      if (running) { running.state = 'failed'; running.detail = error.message; renderStages(stages); }
+      say(`${error.message} — everything runs in this tab, so a reload and a second try often clears it.`);
+    } finally {
+      resetStart();
+    }
   }
 
   // ----------------------------------------------------------------- render
@@ -401,6 +466,28 @@
 
   function renderReceipts(privacy, quality) {
     const models = privacy.models || {};
+
+    // In-browser runs get their own receipts. The server's list is about what
+    // a server did with an upload, and repeating it here — "encrypted at
+    // rest", "deleted after transcription" — would describe storage that never
+    // existed. Nothing was uploaded; that is the stronger claim, and the true
+    // one.
+    if (privacy.in_browser) {
+      const browserRows = [
+        [true, 'Nothing was uploaded. The recording was read by this page and never left your device.'],
+        [true, 'The models ran here, in this tab. No account, no server, no request carrying your audio.'],
+        [quality.redactions >= 0, quality.redactions
+          ? `${quality.redactions} identifiers were replaced in the transcript.`
+          : 'No personal identifiers were detected in the transcript.'],
+        [true, `Recognition: ${models.asr || 'not recorded'}. Speakers: ${models.diarization || 'not recorded'}. `
+             + `Brief: ${models.summarizer || 'not recorded'}.`],
+        [true, 'Close this tab and it is gone — there is nothing to delete and nothing to expire.'],
+      ];
+      el.receipts.innerHTML = browserRows.map(([ok, text]) =>
+        `<li><span class="${ok ? 'tick' : 'cross'}">${ok ? '✓' : '!'}</span><span>${esc(text)}</span></li>`).join('');
+      return;
+    }
+
     const rows = [
       [!privacy.audio_retained, privacy.audio_retained
         ? 'Audio is still stored; it will go when the retention window ends.'
