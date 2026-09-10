@@ -1,0 +1,285 @@
+==============================================================================
+  Naif — Summary from a Full Recording
+  10 cells. Add them at the END of the shared notebook, in this order.
+  'TEXT CELL'  ->  + Text   |   'CODE CELL'  ->  + Code
+==============================================================================
+
+
+------------------------------------------------------------------------------
+  TEXT CELL 1
+------------------------------------------------------------------------------
+
+---
+
+# 6 · Summary from a Full Recording
+### Naif
+
+Sections 2–4 run on short samples. This section takes one complete recording —
+half an hour or an hour — transcribes it, and prints a summary for the
+presentation slide. The recording is also saved as an mp3 for the slide before
+it.
+
+A 30-minute meeting is around 5,000 words, which is more than a summariser
+takes at once. So the transcript is split into parts, each part is summarised,
+and the part summaries are summarised again into one paragraph.
+
+**Before running:** `Runtime → Change runtime type → T4 GPU`. About six minutes
+for half an hour of audio.
+
+
+------------------------------------------------------------------------------
+  CODE CELL 1
+------------------------------------------------------------------------------
+
+# ============================================================
+# Cell 1: Setup
+# ============================================================
+
+!pip install -q openai-whisper
+
+import time
+import textwrap
+import urllib.request
+
+import torch
+
+# One meeting from AMI, the same corpus used in section 1. Four people, one
+# room, real speech. If a link is down the next one is tried.
+AUDIO_URLS = [
+    "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2004c/audio/ES2004c.Mix-Headset.wav",
+    "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2004b/audio/ES2004b.Mix-Headset.wav",
+    "https://groups.inf.ed.ac.uk/ami/AMICorpusMirror/amicorpus/ES2004d/audio/ES2004d.Mix-Headset.wav",
+]
+
+WHISPER_MODEL = "small"
+MINUTES = None          # None = the whole recording. Set to 10 to test quickly.
+WORDS_PER_PART = 700    # how much of the transcript each timeline point covers
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def clock(seconds):
+    """Seconds as h:mm:ss."""
+    seconds = int(seconds)
+    return f"{seconds // 3600}:{seconds // 60 % 60:02d}:{seconds % 60:02d}"
+
+
+print("Device:", device)
+
+
+------------------------------------------------------------------------------
+  TEXT CELL 2
+------------------------------------------------------------------------------
+
+### Cell 2 · Download the recording
+
+Downloaded, converted to 16 kHz mono for Whisper, and saved again as a small
+mp3 for the presentation.
+
+
+------------------------------------------------------------------------------
+  CODE CELL 2
+------------------------------------------------------------------------------
+
+# ============================================================
+# Cell 2: Download the recording
+# ============================================================
+
+for url in AUDIO_URLS:
+    try:
+        urllib.request.urlretrieve(url, "meeting.wav")
+        print("Downloaded:", url.split("/")[-1])
+        break
+    except Exception:
+        print("Not available:", url.split("/")[-1])
+
+# To use your own file instead, upload it to /content and set:
+# !cp /content/yourfile.wav meeting.wav
+
+trim = f"-t {MINUTES * 60}" if MINUTES else ""
+
+# 16 kHz mono is what Whisper expects
+!ffmpeg -y -v error -i meeting.wav {trim} -ac 1 -ar 16000 audio.wav
+
+# 64 kbps mono keeps half an hour under 15 MB, small enough for a slide
+!ffmpeg -y -v error -i audio.wav -b:a 64k meeting.mp3
+
+probe = !ffprobe -v error -show_entries format=duration -of csv=p=0 audio.wav
+seconds = float(probe[0])
+
+print("Length:", clock(seconds))
+
+
+------------------------------------------------------------------------------
+  TEXT CELL 3
+------------------------------------------------------------------------------
+
+### Cell 3 · Transcribe
+
+
+------------------------------------------------------------------------------
+  CODE CELL 3
+------------------------------------------------------------------------------
+
+# ============================================================
+# Cell 3: Transcribe
+# ============================================================
+
+import whisper
+
+model = whisper.load_model(WHISPER_MODEL, device=device)
+
+start = time.time()
+result = model.transcribe(
+    "audio.wav",
+    language="en",
+    fp16=(device == "cuda"),
+    # On a long recording Whisper can get stuck repeating a line it already
+    # produced. Not carrying the previous text into the next window stops it.
+    condition_on_previous_text=False,
+)
+print(f"Transcribed in {(time.time() - start) / 60:.1f} minutes")
+
+segments = result["segments"]
+
+print("Segments:", len(segments))
+print("Words:", len(result["text"].split()))
+print()
+for s in segments[:5]:
+    print(f"[{clock(s['start'])}] {s['text'].strip()}")
+
+
+------------------------------------------------------------------------------
+  TEXT CELL 4
+------------------------------------------------------------------------------
+
+### Cell 4 · Summarise
+
+The transcript is cut into parts of about 700 words — the summariser reads
+around a thousand at a time. Each part is summarised on its own, then those
+summaries are summarised together into the paragraph at the top.
+
+
+------------------------------------------------------------------------------
+  CODE CELL 4
+------------------------------------------------------------------------------
+
+# ============================================================
+# Cell 4: Summarise
+# ============================================================
+
+from transformers import pipeline as hf_pipeline
+
+# Imported under its own name: section 3 binds `pipeline` to the pyannote
+# object, so the bare name here would call the diarizer instead.
+summariser = hf_pipeline(
+    "summarization",
+    model="facebook/bart-large-cnn",
+    device=0 if device == "cuda" else -1
+)
+
+
+def split_transcript(segments, words_per_part):
+    """Group consecutive segments into parts of roughly this many words.
+
+    Split by word count rather than by time: the summariser reads about 1000
+    words at a time, and anything longer is silently cut off. A part sized in
+    words always fits, whether the recording is half an hour or two.
+    """
+    parts, current, count = [], [], 0
+
+    for s in segments:
+        current.append(s)
+        count += len(s["text"].split())
+
+        if count >= words_per_part:
+            parts.append(current)
+            current, count = [], 0
+
+    # A leftover too small to summarise on its own joins the part before it
+    if current:
+        if parts and count < words_per_part // 3:
+            parts[-1] += current
+        else:
+            parts.append(current)
+
+    return parts
+
+
+def summarise(text, length):
+    out = summariser(
+        text,
+        max_length=length,
+        min_length=30,
+        do_sample=False,
+        truncation=True
+    )
+    return out[0]["summary_text"].strip()
+
+
+timeline = []
+
+for chunk in split_transcript(segments, WORDS_PER_PART):
+    text = " ".join(s["text"].strip() for s in chunk)
+    timeline.append((chunk[0]["start"], chunk[-1]["end"], summarise(text, 90)))
+    print("Part", len(timeline), "summarised")
+
+overall = summarise(" ".join(point for _, _, point in timeline), 130)
+
+
+------------------------------------------------------------------------------
+  TEXT CELL 5
+------------------------------------------------------------------------------
+
+### Cell 5 · The summary, and the files for the presentation
+
+`summary.txt` goes on one slide, `meeting.mp3` on the slide before it. Both
+download automatically.
+
+
+------------------------------------------------------------------------------
+  CODE CELL 5
+------------------------------------------------------------------------------
+
+# ============================================================
+# Cell 5: The summary, and the files for the presentation
+# ============================================================
+
+lines = ["MEETING SUMMARY", ""]
+lines.append(textwrap.fill(overall, 78))
+lines += ["", "TIMELINE", ""]
+
+for start, end, point in timeline:
+    label = f"{clock(start)} - {clock(end)}"
+    lines.append(textwrap.fill(
+        f"{label}   {point}",
+        width=78,
+        subsequent_indent=" " * (len(label) + 3)
+    ))
+    lines.append("")
+
+lines.append(f"Recording {clock(seconds)}   "
+             f"{len(result['text'].split()):,} words   "
+             f"{len(segments)} segments")
+
+summary = "\n".join(lines)
+print(summary)
+
+with open("summary.txt", "w") as f:
+    f.write(summary)
+
+with open("transcript.txt", "w") as f:
+    for s in segments:
+        f.write(f"[{clock(s['start'])}] {s['text'].strip()}\n")
+
+from google.colab import files
+
+files.download("meeting.mp3")
+files.download("summary.txt")
+files.download("transcript.txt")
+
+
+==============================================================================
+  5 text cells, 5 code cells.
+  Then: Runtime -> Change runtime type -> T4 GPU, and run them in order.
+==============================================================================
