@@ -159,6 +159,9 @@ The transcript is cut into parts of about 700 words — the summariser reads
 around a thousand at a time. Each part is summarised on its own, then those
 summaries are summarised together into the paragraph at the top.
 
+`bart-large-cnn` is loaded directly instead of through `pipeline("summarization")`,
+which no longer exists in transformers 5.
+
 
 ------------------------------------------------------------------------------
   CODE CELL 4
@@ -168,15 +171,15 @@ summaries are summarised together into the paragraph at the top.
 # Cell 4: Summarise
 # ============================================================
 
-from transformers import pipeline as hf_pipeline
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
-# Imported under its own name: section 3 binds `pipeline` to the pyannote
-# object, so the bare name here would call the diarizer instead.
-summariser = hf_pipeline(
-    "summarization",
-    model="facebook/bart-large-cnn",
-    device=0 if device == "cuda" else -1
-)
+# The model is loaded directly rather than through pipeline("summarization"):
+# transformers 5 dropped that task, so the pipeline call raises KeyError on a
+# current Colab runtime. Calling generate() works on every version.
+SUMMARY_MODEL = "facebook/bart-large-cnn"
+
+tokenizer = AutoTokenizer.from_pretrained(SUMMARY_MODEL)
+summariser = AutoModelForSeq2SeqLM.from_pretrained(SUMMARY_MODEL).to(device)
 
 
 def split_transcript(segments, words_per_part):
@@ -207,14 +210,24 @@ def split_transcript(segments, words_per_part):
 
 
 def summarise(text, length):
-    out = summariser(
+    """One summary of one part. Input is capped at the 1024 tokens the model
+    reads; split_transcript keeps parts well under that."""
+    inputs = tokenizer(
         text,
+        return_tensors="pt",
+        truncation=True,
+        max_length=1024
+    ).to(device)
+
+    output = summariser.generate(
+        **inputs,
         max_length=length,
         min_length=30,
-        do_sample=False,
-        truncation=True
+        num_beams=4,
+        no_repeat_ngram_size=3
     )
-    return out[0]["summary_text"].strip()
+
+    return tokenizer.decode(output[0], skip_special_tokens=True).strip()
 
 
 timeline = []
