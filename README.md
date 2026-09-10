@@ -9,6 +9,7 @@ brief in which **every point carries the line it came from**.
 |---|---|
 | **Live site** | **<https://vocalyze-ai.github.io/>** — transcribes in the browser; connects to a running service when given one |
 | **Notebook** | [`notebooks/Samsung_Campos_AI.ipynb`](notebooks/Samsung_Campos_AI.ipynb) — all five components, and a cell that runs the whole system on a public link |
+| **Long-form summary** | [`notebooks/Naif_LongForm_Summary.ipynb`](notebooks/Naif_LongForm_Summary.ipynb) — half an hour of real meeting audio in, one slide-sized brief out |
 | **This repository** | the integration and privacy component: the backend, the interface, the merge, and the controls over all of it |
 
 Also here: [deploy guide](DEPLOY.md) · [delivery notes](DELIVERY.md) ·
